@@ -1,0 +1,14 @@
+{
+  "name": "claude-skills-aosjunior",
+  "version": "1.0.0",
+  "description": "Skills do Claude Code prontas pra instalar — npx github:AosJunior/claude-skills",
+  "bin": {
+    "claude-skills-aosjunior": "bin/install.mjs"
+  },
+  "type": "module",
+  "files": [
+    "bin",
+    "skills"
+  ],
+  "license": "MIT"
+}

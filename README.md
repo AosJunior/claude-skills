@@ -10,15 +10,28 @@ Skills do Claude Code prontas pra instalar. Cada pasta em [skills/](skills/) é 
 
 ## Instalação
 
-Um comando só:
+Um comando só (precisa do Node instalado — quem usa Claude Code já tem):
+
+```bash
+npx github:AosJunior/claude-skills
+```
+
+Depois é só abrir o Claude Code em qualquer projeto e digitar `/docs-init`.
+
+Pra atualizar no futuro, rode o mesmo comando de novo com `@latest` implícito — o npx sempre baixa o estado atual do repo:
+
+```bash
+npx github:AosJunior/claude-skills
+```
+
+<details>
+<summary>Alternativa sem npx (git puro)</summary>
 
 ```bash
 git clone https://github.com/AosJunior/claude-skills.git /tmp/claude-skills && mkdir -p ~/.claude/skills && cp -R /tmp/claude-skills/skills/* ~/.claude/skills/ && rm -rf /tmp/claude-skills
 ```
 
-Depois é só abrir o Claude Code em qualquer projeto e digitar `/docs-init`.
-
-Pra atualizar no futuro, rode o mesmo comando de novo.
+</details>
 
 ## Como usar o `/docs-init`
 
