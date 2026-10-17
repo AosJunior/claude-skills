@@ -10,7 +10,26 @@ const dest = join(homedir(), ".claude", "skills");
 
 mkdirSync(dest, { recursive: true });
 
-const skills = readdirSync(src, { withFileTypes: true }).filter((e) => e.isDirectory());
+const PACOTES = { edicao: ["decupar", "inserir", "sonorizar", "minha-edicao"] };
+
+const todas = readdirSync(src, { withFileTypes: true }).filter((e) => e.isDirectory());
+const disponiveis = todas.map((e) => e.name);
+
+// Argumentos: nome de pacote (ex.: edicao) ou nome(s) de skill. Sem argumento, instala todas.
+const args = process.argv.slice(2);
+const pedidas = args.length
+  ? args.flatMap((a) => (PACOTES[a] ? PACOTES[a] : [a]))
+  : disponiveis;
+
+const invalidas = pedidas.filter((n) => !disponiveis.includes(n));
+if (invalidas.length) {
+  console.error(`\n❌ Não encontrei: ${invalidas.join(", ")}\n`);
+  console.error(`Pacotes: ${Object.keys(PACOTES).join(", ")}`);
+  console.error(`Skills: ${disponiveis.join(", ")}\n`);
+  process.exit(1);
+}
+
+const skills = [...new Set(pedidas)].map((name) => ({ name }));
 for (const s of skills) {
   cpSync(join(src, s.name), join(dest, s.name), { recursive: true });
 }

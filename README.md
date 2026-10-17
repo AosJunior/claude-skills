@@ -23,6 +23,12 @@ Todas as skills do repo de uma vez, em `~/.claude/skills`:
 npx github:AosJunior/claude-skills
 ```
 
+Só as skills da aula de edição de vídeo (decupar, inserir, sonorizar, minha-edicao):
+
+```bash
+npx github:AosJunior/claude-skills edicao
+```
+
 Só uma skill, pela CLI `skills` (escopo global):
 
 ```bash
