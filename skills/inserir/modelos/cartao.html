@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<!-- Modelo da /inserir: o inserir.py abre esta página, chama montar() ou legenda() e fotografa com fundo
+     transparente (1080×1920). As fontes da pessoa entram por definirEstilo(). Para ajustar o visual de um tipo de
+     cartão, mexa só no CSS dele aqui. -->
+<style>
+  :root {
+    --fundo: #141414; --tinta: #F5F2EC; --dest: #E8C27A;
+    --fonte: "F", "Inter", "Helvetica Neue", "Segoe UI", Arial, sans-serif;
+    --fonte-d: "D", "F", Georgia, "Times New Roman", serif;
+    --k: 1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1080px; height: 1920px; background: transparent; overflow: hidden; }
+  body { font-family: var(--fonte); color: var(--tinta); font-synthesis: none; -webkit-font-smoothing: antialiased; }
+  em { font-family: var(--fonte-d); font-style: normal; color: var(--dest); }
+  .oculto { visibility: hidden; }
+
+  /* ---------- moldura: tela cheia ou painel ---------- */
+  #cartao { position: absolute; display: none; }
+  #cartao.tela { display: flex; inset: 0; background: var(--fundo); }
+  #cartao.tela .miolo { position: absolute; left: 96px; right: 96px; top: 250px; height: 1000px;
+                        display: flex; flex-direction: column; justify-content: center; }
+  #cartao.painel { display: flex; left: 48px; right: 48px; top: 150px; border-radius: 44px; background: var(--fundo);
+                   box-shadow: 0 18px 60px rgba(0,0,0,.35); --k: .82; }
+  #cartao.painel .miolo { position: relative; width: 100%; padding: 56px 60px; display: flex; flex-direction: column; }
+
+  .rotulo { font-size: calc(44px * var(--k)); letter-spacing: .04em; opacity: .62; margin-bottom: calc(28px * var(--k)); }
+  .titulo { font-family: var(--fonte-d); font-size: calc(96px * var(--k)); line-height: 1.04; margin-bottom: calc(52px * var(--k)); }
+
+  /* lista e etapas */
+  .itens { list-style: none; }
+  .itens li { display: flex; align-items: baseline; gap: calc(30px * var(--k)); padding: calc(26px * var(--k)) 0;
+              border-top: 2px solid color-mix(in srgb, var(--tinta) 18%, transparent); }
+  .itens li:last-child { border-bottom: 2px solid color-mix(in srgb, var(--tinta) 18%, transparent); }
+  .itens .n { font-size: calc(38px * var(--k)); color: var(--dest); min-width: calc(56px * var(--k)); }
+  .itens .t { font-size: calc(68px * var(--k)); line-height: 1.12; }
+  .etapas li { border: 0 !important; position: relative; align-items: center; }
+  .etapas .n { width: calc(84px * var(--k)); height: calc(84px * var(--k)); min-width: calc(84px * var(--k));
+               border-radius: 50%; border: 3px solid var(--dest); display: flex; align-items: center; justify-content: center; }
+  .etapas li:not(:last-child)::after { content: ""; position: absolute; left: calc(40px * var(--k)); top: calc(26px * var(--k) + 84px * var(--k));
+               height: calc(52px * var(--k)); border-left: 3px solid color-mix(in srgb, var(--dest) 55%, transparent); }
+
+  /* número grande */
+  .numero { text-align: center; }
+  .numero .grande { font-family: var(--fonte-d); font-size: calc(260px * var(--k)); line-height: 1; color: var(--dest); white-space: nowrap; }
+  .numero .linha { width: 120px; height: 3px; background: var(--tinta); opacity: .5; margin: calc(48px * var(--k)) auto; }
+  .numero .t { font-size: calc(60px * var(--k)); line-height: 1.18; }
+
+  /* comparação lado a lado */
+  .lados { display: grid; grid-template-columns: 1fr 1fr; gap: calc(40px * var(--k)); }
+  .lado { border-radius: calc(32px * var(--k)); padding: calc(44px * var(--k)) calc(36px * var(--k));
+          background: color-mix(in srgb, var(--tinta) 7%, transparent); border: 2px solid color-mix(in srgb, var(--tinta) 16%, transparent); }
+  .lado.b { border-color: var(--dest); }
+  .lado h3 { font-family: var(--fonte-d); font-weight: normal; font-size: calc(88px * var(--k)); line-height: 1.05; margin-bottom: calc(26px * var(--k)); }
+  .lado.b h3 { color: var(--dest); }
+  .lado p { font-size: calc(52px * var(--k)); line-height: 1.2; }
+
+  /* frase */
+  .frase { font-family: var(--fonte-d); font-size: calc(104px * var(--k)); line-height: 1.08; text-align: center; }
+
+  /* print real e imagem */
+  .print .marca { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: calc(30px * var(--k)); }
+  .print .marca b { font-weight: normal; font-size: calc(64px * var(--k)); }
+  .print .marca span { font-size: calc(34px * var(--k)); opacity: .62; }
+  .print .janela { border-radius: calc(28px * var(--k)); overflow: hidden; border: 2px solid color-mix(in srgb, var(--tinta) 22%, transparent);
+                   box-shadow: 0 24px 70px rgba(0,0,0,.4); background: #fff; }
+  .print img { display: block; width: 100%; max-height: calc(800px * var(--k)); object-fit: cover; object-position: top; }
+  #cartao.imagem .miolo { inset: 0; top: 0; height: 100%; left: 0; right: 0; }
+  #cartao.imagem img { width: 100%; height: 100%; object-fit: cover; }
+
+  /* ---------- legenda ---------- */
+  #leg { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; display: none; line-height: 1.15; }
+  #leg em { display: inline-block; }
+</style>
+</head>
+<body>
+<div id="cartao"><div class="miolo"></div></div>
+<div id="leg"></div>
+<script>
+const esc = (s) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// *palavra* vira destaque (fonte de destaque e cor de destaque)
+const rico = (s) => esc(s).replace(/\*(.+?)\*/g, "<em>$1</em>");
+let E = {};
+
+window.definirEstilo = (estilo, fontes) => {
+  E = estilo;
+  const css = [];
+  if (fontes.F) css.push(`@font-face { font-family: "F"; src: url(${fontes.F}); }`);
+  if (fontes.D) css.push(`@font-face { font-family: "D"; src: url(${fontes.D}); }`);
+  const st = document.createElement("style"); st.textContent = css.join("\n"); document.head.appendChild(st);
+  const r = document.documentElement.style;
+  r.setProperty("--fundo", estilo.cartao_fundo); r.setProperty("--tinta", estilo.cartao_tinta); r.setProperty("--dest", estilo.cartao_destaque);
+};
+
+function lista(d, estado, cls) {
+  const itens = d.itens.map((it, i) =>
+    `<li class="${i < estado ? "" : "oculto"}"><span class="n">${cls === "etapas" ? i + 1 : String(i + 1).padStart(2, "0")}</span><span class="t">${rico(it.texto)}</span></li>`).join("");
+  return (d.rotulo ? `<div class="rotulo">${rico(d.rotulo)}</div>` : "") +
+         (d.titulo ? `<div class="titulo">${rico(d.titulo)}</div>` : "") + `<ul class="itens ${cls}">${itens}</ul>`;
+}
+
+const TIPOS = {
+  lista: (d, e) => lista(d, e, "lista"),
+  etapas: (d, e) => lista(d, e, "etapas"),
+  numero: (d) => `<div class="numero">${d.rotulo ? `<div class="rotulo">${rico(d.rotulo)}</div>` : ""}<div class="grande">${esc(d.numero)}</div>` +
+                 (d.texto ? `<div class="linha"></div><div class="t">${rico(d.texto)}</div>` : "") + `</div>`,
+  comparacao: (d, e) => (d.titulo ? `<div class="titulo">${rico(d.titulo)}</div>` : "") +
+    `<div class="lados">` + [d.esquerda, d.direita].map((l, i) =>
+      `<div class="lado ${i ? "b" : "a"} ${i < e ? "" : "oculto"}"><h3>${rico(l.titulo)}</h3><p>${rico(l.texto)}</p></div>`).join("") + `</div>`,
+  frase: (d) => (d.rotulo ? `<div class="rotulo" style="text-align:center">${rico(d.rotulo)}</div>` : "") + `<div class="frase">${rico(d.texto)}</div>`,
+  print: (d) => `<div class="print"><div class="marca"><b>${rico(d.marca)}</b><span>${esc(d.endereco || "")}</span></div>` +
+                `<div class="janela"><img src="${d.imagem_url}"></div></div>`,
+  imagem: (d) => `<img src="${d.imagem_url}">`,
+};
+
+// estado = quantos itens já entraram (lista, etapas, comparação)
+window.montar = async (d, estado) => {
+  document.getElementById("leg").style.display = "none";
+  const c = document.getElementById("cartao");
+  c.className = d.tipo === "imagem" ? "tela imagem" : (d.formato === "painel" ? "painel" : "tela");
+  c.firstElementChild.innerHTML = TIPOS[d.tipo](d, estado);
+  await document.fonts.ready;
+  await Promise.all([...c.querySelectorAll("img")].map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; })));
+  // número grande que não cabe na largura: reduz até caber
+  const g = c.querySelector(".grande");
+  if (g) { let s = parseFloat(getComputedStyle(g).fontSize); while (g.scrollWidth > 888 && s > 60) { s -= 8; g.style.fontSize = s + "px"; } }
+  const m = c.firstElementChild, r = m.getBoundingClientRect();
+  return { altura: Math.round(r.height), transborda: m.scrollHeight > m.clientHeight + 2 };
+};
+
+// palavras: [[texto, destaque?], ...]
+window.legenda = async (palavras) => {
+  document.getElementById("cartao").className = "";
+  const L = document.getElementById("leg");
+  const tam = E.tamanho, k = E.escala_destaque;
+  L.style.display = "block";
+  L.style.fontSize = tam + "px";
+  L.style.color = E.cor;
+  L.style.textTransform = E.maiusculas ? "uppercase" : "none";
+  const a = E.sombra;
+  L.style.textShadow = a > 0 ? `0 2px 10px rgba(0,0,0,${a}), 0 0 3px rgba(0,0,0,${(a * 0.6).toFixed(2)})` : "none";
+  L.innerHTML = "<span>" + palavras.map(([w, dest]) => dest ? `<em style="font-size:${k}em;color:${E.cor_destaque}">${esc(w)}</em>` : esc(w)).join(" ") + "</span>";
+  L.style.top = "0px";
+  await document.fonts.ready;
+  let s = tam;
+  const linha = L.firstElementChild;
+  while (linha.getBoundingClientRect().width > 1080 - 2 * E.margem && s > 30) { s -= 2; L.style.fontSize = s + "px"; }
+  // a base da linha (pé das letras) fica em legenda_y
+  const ref = document.createElement("span"); ref.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
+  L.appendChild(ref);
+  const base = ref.getBoundingClientRect().top;
+  L.style.top = (E.legenda_y - base) + "px";
+  const r = L.getBoundingClientRect();
+  return { topo: Math.round(r.top), base: E.legenda_y, tamanho: s };
+};
+window.__pronto = true;
+</script>
+</body>
+</html>
