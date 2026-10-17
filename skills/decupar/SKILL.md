@@ -12,6 +12,9 @@ para o editor dela. Quem usa é leigo, no Claude Desktop, no Mac ou no Windows. 
 O bruto só é lido: todo arquivo novo nasce em `<pasta do vídeo>/decupagem/`, e os scripts cuidam
 disso. Se o caminho é um atalho (symlink) para o bruto, a decupagem nasce ao lado do atalho. Os scripts ficam em `<pasta desta skill>/scripts/` (a pasta aparece quando a skill carrega).
 
+**Pasta de edição**: se houver `marca/estilo.md` na pasta do vídeo ou até 3 pastas acima dela, leia antes
+de começar. A cor do passo 2b sai de lá (o look descrito no estilo) e vale mais que a receita da `/minha-edicao`.
+
 ## Conversa
 
 Frases curtas, sem termo técnico: "partes gravadas de novo", "pausas", "começo forte". Antes de cada

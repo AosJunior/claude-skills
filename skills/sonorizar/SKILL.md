@@ -16,6 +16,10 @@ pessoa fala. Efeito sonoro é **pontuação**: só onde algo acontece, cada um c
 O vídeo só é lido. Todo arquivo novo nasce em `<pasta do vídeo>/som/` (o `som.json`, os sons baixados em
 `som/sons/`, o vídeo com som e o `creditos.md`). Os scripts ficam em `<pasta desta skill>/scripts/`.
 
+**Pasta de edição**: se houver `marca/estilo.md` na pasta do vídeo ou até 3 pastas acima dela, leia antes
+de começar. Os efeitos e as trilhas saem de `marca/sons/` (é a pasta da pessoa do passo 2) e o jeito de usar
+cada som segue o que o estilo diz.
+
 ## Conversa
 
 Frases curtas, sem termo técnico: "a música abaixa quando você fala", "efeito", "volume de publicação". Antes do

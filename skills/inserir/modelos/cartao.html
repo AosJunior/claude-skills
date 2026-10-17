@@ -71,6 +71,25 @@
   #cartao.imagem .miolo { inset: 0; top: 0; height: 100%; left: 0; right: 0; }
   #cartao.imagem img { width: 100%; height: 100%; object-fit: cover; }
 
+  /* ---------- solto: colagem sobre o vídeo, sem caixa (recorte, foto, print de notícia, título no alto) ---------- */
+  #cartao.solto { display: block; inset: 0; }
+  #cartao.solto .miolo { position: absolute; inset: 0; }
+  .titulo-alto { position: absolute; left: 70px; right: 70px; font-family: var(--fonte-d); color: #fff; text-align: center;
+                 line-height: 1.02; text-shadow: 0 2px 16px rgba(0,0,0,.55), 0 0 3px rgba(0,0,0,.35); }
+  .titulo-alto em { color: #fff; }
+  .peca { position: absolute; transform-origin: center; }
+  .peca img { display: block; width: 100%; }
+  .peca.foto img { border-radius: 26px; box-shadow: 0 18px 48px rgba(0,0,0,.45); }
+  .peca.recorte img { filter: drop-shadow(0 14px 22px rgba(0,0,0,.45)); }
+  .peca.noticia { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 22px 60px rgba(0,0,0,.45); }
+  .peca.noticia img { border-radius: 4px; }
+  .peca .rot { position: absolute; left: 50%; bottom: -26px; transform: translateX(-50%); background: #fff; color: #111;
+               font-family: var(--fonte); font-size: 34px; padding: 8px 18px; border-radius: 8px; white-space: nowrap; }
+  .dividida-topo { position: absolute; left: 0; top: 0; width: 1080px; height: 960px; overflow: hidden; background: #000; }
+  .dividida-topo img { width: 100%; height: 100%; object-fit: cover; }
+  .faixa { position: absolute; left: 50%; transform: translateX(-50%); background: #fff; color: #111; font-family: var(--fonte);
+           font-size: 48px; padding: 12px 28px; border-radius: 10px; white-space: nowrap; box-shadow: 0 8px 24px rgba(0,0,0,.3); }
+
   /* ---------- legenda ---------- */
   #leg { position: absolute; left: 0; right: 0; text-align: center; white-space: nowrap; display: none; line-height: 1.15; }
   #leg em { display: inline-block; }
@@ -114,13 +133,24 @@ const TIPOS = {
   print: (d) => `<div class="print"><div class="marca"><b>${rico(d.marca)}</b><span>${esc(d.endereco || "")}</span></div>` +
                 `<div class="janela"><img src="${d.imagem_url}"></div></div>`,
   imagem: (d) => `<img src="${d.imagem_url}">`,
+  // estilo colagem: frase em serifa no alto, sem caixa (também serve para número grande)
+  titulo: (d) => `<div class="titulo-alto" style="top:${d.y ?? 150}px;font-size:${d.tamanho ?? 92}px">${rico(d.texto)}</div>`,
+  // peças soltas que entram uma a uma: recorte sem fundo, foto com canto arredondado, print de notícia em papel branco
+  colagem: (d, e) => d.pecas.map((p, i) =>
+      `<div class="peca ${p.estilo || "recorte"} ${i < e ? "" : "oculto"}" style="left:${p.x}px;top:${p.y}px;width:${p.largura}px;transform:rotate(${p.rot || 0}deg)">` +
+      `<img src="${p.imagem_url}">${p.rotulo ? `<span class="rot">${esc(p.rotulo)}</span>` : ""}</div>`).join("") +
+    (d.texto ? `<div class="titulo-alto" style="top:${d.y_texto ?? 150}px;font-size:${d.tamanho ?? 84}px">${rico(d.texto)}</div>` : ""),
+  // gancho em tela dividida: imagem da internet em cima, a pessoa embaixo (o inserir.py desce o vídeo)
+  dividida: (d) => `<div class="dividida-topo"><img src="${d.imagem_url}" style="object-position:${d.foco || "center"}"></div>` +
+    (d.faixa ? `<div class="faixa" style="top:${d.y_faixa ?? 925}px">${esc(d.faixa)}</div>` : ""),
 };
+const SOLTOS = ["titulo", "colagem", "dividida"];
 
 // estado = quantos itens já entraram (lista, etapas, comparação)
 window.montar = async (d, estado) => {
   document.getElementById("leg").style.display = "none";
   const c = document.getElementById("cartao");
-  c.className = d.tipo === "imagem" ? "tela imagem" : (d.formato === "painel" ? "painel" : "tela");
+  c.className = d.tipo === "imagem" ? "tela imagem" : SOLTOS.includes(d.tipo) ? "solto" : (d.formato === "painel" ? "painel" : "tela");
   c.firstElementChild.innerHTML = TIPOS[d.tipo](d, estado);
   await document.fonts.ready;
   await Promise.all([...c.querySelectorAll("img")].map((i) => i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; })));
@@ -132,7 +162,8 @@ window.montar = async (d, estado) => {
 };
 
 // palavras: [[texto, destaque?], ...]
-window.legenda = async (palavras) => {
+window.legenda = async (palavras, y) => {
+  const Y = y ?? E.legenda_y;
   document.getElementById("cartao").className = "";
   const L = document.getElementById("leg");
   const tam = E.tamanho, k = E.escala_destaque;
@@ -152,9 +183,9 @@ window.legenda = async (palavras) => {
   const ref = document.createElement("span"); ref.style.cssText = "display:inline-block;width:0;height:0;vertical-align:baseline";
   L.appendChild(ref);
   const base = ref.getBoundingClientRect().top;
-  L.style.top = (E.legenda_y - base) + "px";
+  L.style.top = (Y - base) + "px";
   const r = L.getBoundingClientRect();
-  return { topo: Math.round(r.top), base: E.legenda_y, tamanho: s };
+  return { topo: Math.round(r.top), base: Y, tamanho: s };
 };
 window.__pronto = true;
 </script>

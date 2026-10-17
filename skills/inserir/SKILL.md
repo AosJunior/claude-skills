@@ -28,6 +28,13 @@ etapa que demora, diga quanto tempo leva:
 
 A única pergunta do fluxo é a confirmação do mapa (passo 3). O resto você executa.
 
+## Pasta de edição
+
+Antes de tudo, procure `marca/estilo.md` na pasta do vídeo e subindo até 3 pastas acima dela. Se achar,
+ele manda: siga o estilo de lá (fontes, cor, padrão de gancho e de inserções) e use as fontes de
+`marca/fontes/` no bloco `estilo` do `insercoes.json`. Diga em uma linha que achou e que vai seguir.
+Sem `marca/estilo.md`, siga o passo 1 como está.
+
 ## 0. Conferir o ambiente
 
 `ffmpeg -version` e `uv --version`. Se faltar um, diga em uma linha o que falta e ofereça instalar;
@@ -38,7 +45,7 @@ Pronto quando os dois respondem com a versão.
 
 - Leia a `legenda.srt` inteira (o tempo dela já é o do vídeo cortado) e a seção "Onde cabe imagem ou
   grafismo" da `decupagem.md`, se existir.
-- **Estilo**: procure na pasta de skills da pessoa (`~/.claude/skills/`; no Windows,
+- **Estilo**: se a pasta de edição tem `marca/estilo.md`, o estilo sai dele. Senão, procure na pasta de skills da pessoa (`~/.claude/skills/`; no Windows,
   `%USERPROFILE%\.claude\skills\`) uma receita de estilo feita com a `/minha-edicao` que fale de
   legenda ou letterings. Dela saem fonte, fonte de destaque, tamanho, cor e posição, que vão para o
   bloco `estilo` do `insercoes.json`. Sem receita, fique com o padrão do script (fonte do sistema, que
@@ -65,10 +72,23 @@ Uma inserção entra quando a fala pede imagem. A **forma da fala** decide o tip
 | passo a passo | `etapas` | etapas numeradas que entram uma a uma |
 | marca, site ou app citado | `print` | print real da página, tirado com `print.py` |
 | conceito com nome ("conformidade social") | `frase` | o nome em letra grande |
+| gancho (a pergunta ou a frase que abre o vídeo) | `dividida` | imagem real da internet na metade de cima, com a frase numa faixa branca; a pessoa desce para a metade de baixo |
+| conceito ou número, no estilo colagem | `titulo` | a frase em letra serifada no alto da tela, sem caixa, com o rosto à vista |
+| marca, objeto ou produto citado | `colagem` com recortes | o produto sem fundo, solto em volta da cabeça, entrando no tempo em que é dito |
+| notícia ou site citado | `colagem` com estilo `"noticia"` | o print em papel branco, inclinado, solto sobre o vídeo |
+| antes × hoje | `colagem` com duas fotos com rótulo | uma foto de cada lado, cada uma com o seu rótulo ("antes", "hoje"), a segunda entra quando a fala chega nela |
+
+Os tipos `titulo`, `colagem` e `dividida` são o estilo colagem: peças soltas por cima do vídeo, sem
+cartão. Use quando o `marca/estilo.md` pedir; sem ele, os cartões de cima continuam valendo.
+
+- **Imagem vem da internet**: a foto do gancho, o recorte do produto e o print da notícia são imagens reais
+  (Wikimedia Commons, site da marca, print da notícia). Salve em `brutos/imagens/` e anote a origem de cada
+  uma (endereço e licença) em `brutos/fontes.md`. Sem origem anotada, a imagem não entra.
 
 Réguas, todas obrigatórias:
 
 - **Gancho e emoção são do rosto**: nada no primeiro segundo do vídeo nem em fala pessoal ou emocional.
+  A exceção é o gancho em tela `dividida`, quando o estilo da pasta pede: o rosto continua na metade de baixo.
 - **Respiro**: uns 2 s de rosto entre uma inserção e a próxima; cada inserção fica de 1,5 a 6 s na tela cheia (painel, até 10 s).
 - **Ritmo**: "algo novo a cada 2,5 s" serve para dica rápida; história e depoimento pedem respiro.
 - **Só o que foi dito**: todo número, nome e dado do cartão sai da fala ou de fonte que você conferiu.
@@ -145,7 +165,7 @@ Tempos do vídeo cortado, em `"mm:ss,cc"` ou segundos. Caminhos relativos à pas
     "fonte": "/caminho/da/fonte-Regular.otf",
     "fonte_destaque": "/caminho/da/fonte-destaque.ttf",
     "tamanho": 64, "cor": "#FFFFFF", "cor_destaque": "#FFFFFF", "escala_destaque": 1.12,
-    "sombra": 0.45, "maiusculas": false, "legenda_y": 1400,
+    "sombra": 0.45, "maiusculas": false, "legenda_y": 1400, "legenda_y_alto": 330,
     "cartao_fundo": "#141414", "cartao_tinta": "#F5F2EC", "cartao_destaque": "#E8C27A"
   },
   "destaques": ["milhões", "conteúdo"],
@@ -160,7 +180,18 @@ Tempos do vídeo cortado, em `"mm:ss,cc"` ou segundos. Caminhos relativos à pas
     {"tipo": "etapas", "de": 20, "ate": 25, "titulo": "Como fazer", "itens": ["Grave", "Corte", "Poste"]},
     {"tipo": "print", "de": 35.2, "ate": 38.6, "imagem": "prints/marca.png", "marca": "Marca", "endereco": "marca.com.br"},
     {"tipo": "frase", "de": 75.3, "ate": 77.6, "texto": "Conformidade *social*"},
-    {"tipo": "imagem", "de": 90, "ate": 92, "imagem": "geradas/cena.png"}
+    {"tipo": "imagem", "de": 90, "ate": 92, "imagem": "geradas/cena.png"},
+    {"tipo": "dividida", "de": 0, "ate": 3.1, "imagem": "../brutos/imagens/gancho.jpg",
+     "faixa": "Lojinha de rua virou coisa de pobre?", "recorte_y": 280},
+    {"tipo": "titulo", "de": 5.9, "ate": 9.2, "texto": "R$ 18 milhões", "tamanho": 150, "y": 90},
+    {"tipo": "colagem", "de": 26.9, "ate": 33.1, "pecas": [
+      {"imagem": "../brutos/imagens/produto-1.png", "estilo": "recorte", "x": 650, "y": 60, "largura": 380, "rot": 8, "t": 26.95},
+      {"imagem": "../brutos/imagens/produto-2.png", "x": 90, "y": 80, "largura": 290, "rot": -8, "t": 29.9}]},
+    {"tipo": "colagem", "de": 33.2, "ate": 36.9, "legenda": "alto", "pecas": [
+      {"imagem": "prints/noticia.png", "estilo": "noticia", "x": 250, "y": 1130, "largura": 580, "rot": -3}]},
+    {"tipo": "colagem", "de": 99.1, "ate": 107.6, "pecas": [
+      {"imagem": "../brutos/imagens/rua-cheia.jpg", "estilo": "foto", "x": 30, "y": 80, "largura": 500, "rot": -4, "t": 99.1, "rotulo": "antes"},
+      {"imagem": "../brutos/imagens/sofa-celular.jpg", "estilo": "foto", "x": 550, "y": 110, "largura": 500, "rot": 4, "t": 103.75, "rotulo": "hoje"}]}
   ]
 }
 ```
@@ -172,6 +203,18 @@ Tempos do vídeo cortado, em `"mm:ss,cc"` ou segundos. Caminhos relativos à pas
   ocupa a tela toda e a legenda continua por cima. Painel só quando o rosto fica abaixo da caixa.
 - Item de lista ou etapa sem `"t"` entra sozinho, espalhado na primeira metade da inserção.
 - `"nota"` (opcional) guarda a frase da fala que justifica o cartão; o script ignora.
+- `titulo`: `texto`, `tamanho` (padrão 92) e `y` (altura do alto da frase, padrão 150). Serve para conceito e
+  número grande, sem caixa.
+- `colagem`: `pecas`, cada uma com `imagem`, `estilo` (`"recorte"`, o padrão: PNG sem fundo com sombra;
+  `"foto"`: canto arredondado; `"noticia"`: print em papel branco), `x`, `y`, `largura`, `rot` (giro em graus),
+  `t` (quando entra; sem ele, as peças se espalham na primeira metade) e `rotulo` (opcional). `texto` (opcional)
+  põe uma frase no alto. Título e colagem podem passar de 6 s: o rosto continua à vista.
+- `dividida`: `imagem` na metade de cima, `faixa` (o texto na faixa branca) e `recorte_y`, a altura do quadro
+  de onde sai o recorte de 960 px em volta do rosto que desce para a metade de baixo. A legenda some nesse trecho.
+- `"legenda"` em qualquer inserção muda a legenda só naquele trecho: `"alto"` sobe para `legenda_y_alto`
+  (padrão 330; use quando a peça fica no meio ou embaixo), `"some"` tira a legenda, um número põe na altura
+  que você quiser, em px.
+- No `estilo`, `"palavras_max": 2` com `"letras_max": 13` dá legenda de 1 a 2 palavras (o padrão é de 2 a 4).
 
 ## prompts.md
 
