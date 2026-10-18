@@ -9,6 +9,10 @@ import unicodedata
 from fractions import Fraction
 from pathlib import Path
 
+# achar a marca, caminhos marca/ e âncoras na fala: contrato.py, igual nas 4 skills do kit
+from contrato import Ancoras, ErroContrato, achar_marca, caminho, texto_marca  # noqa: F401
+from contrato import chave as chave_palavra  # noqa: F401
+
 VIDEO = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".mts", ".3gp"}
 AUDIO_EVITAR = {"apple_apac"}          # áudio espacial do iPhone: não serve para transcrever nem para cortar
 PADROES = [Fraction(24000, 1001), Fraction(24), Fraction(25), Fraction(30000, 1001), Fraction(30),
@@ -127,33 +131,12 @@ def sondar(video):
     }
 
 
-def chave_palavra(w):
-    """Palavra sem acento, caixa e pontuação ("Vocês," -> "voces"): é assim que as âncoras comparam."""
-    s = unicodedata.normalize("NFKD", str(w)).encode("ascii", "ignore").decode().lower()
-    return re.sub(r"[^a-z0-9]", "", s)
-
-
-def achar_marca(pasta):
-    """Sobe a partir da pasta do vídeo até achar marca/estilo.md (ou chegar à raiz do disco).
-    Devolve a pasta marca/ ou None. Igual em todas as skills do kit (contrato, seção 1)."""
-    p = Path(os.path.abspath(Path(pasta).expanduser()))
-    for d in (p, *p.parents):
-        if (d / "marca" / "estilo.md").is_file():
-            return d / "marca"
-    return None
-
-
-def texto_marca(marca):
-    return f"Marca: {marca}" if marca else "Marca: nenhuma"
-
-
-def resolver(caminho, base, marca):
-    """Caminho escrito num JSON: "marca/..." vale contra a pasta de edição; o resto, contra a pasta do JSON."""
-    c = str(caminho).replace("\\", "/")
-    if c.startswith("marca/"):
-        return (marca.parent / c) if marca else None
-    p = Path(c).expanduser()
-    return p if p.is_absolute() else Path(base) / p
+def resolver(c, base, marca):
+    """Caminho de um JSON (contrato, seção 1); None quando é marca/... e não há marca."""
+    try:
+        return caminho(c, base, marca)
+    except ErroContrato:
+        return None
 
 
 def orientacao(info):

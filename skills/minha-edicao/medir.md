@@ -98,15 +98,17 @@ Para cada vídeo (`<v>` = caminho do arquivo, `<n>` = nome curto, `<m>` = pasta 
   na folha) e o maior trecho sem evento.
 - **Trilha**: o gênero de ouvido (cordas, jazz, lo-fi, pop) e o nome pelo Shazam:
   ```
-  uv run "<skill>/../sonorizar/scripts/identificar.py" "<v>"
+  uv run --python 3.12 "<skill>/../sonorizar/scripts/identificar.py" "<v1>" "<v2>"
   ```
   Rode nos Reels dela e nas referências: as faixas que voltam definem o universo da trilha.
 - **Cor**: com o bruto dela e o mesmo vídeo exportado do editor dela (com o filtro que ela usa), gere o LUT:
   ```
   uv run "<skill>/../decupar/scripts/lut_capcut.py" "<bruto>" "<exportação do editor>" "marca/cor/<nome>.cube"
   ```
-  O script imprime o ΔE00 médio num trecho fora do ajuste. Até 2 é a cor dela (o look feito no olho deu 5,46;
-  o LUT, 1,43). Acima de 3, confira se os dois vídeos são o mesmo trecho e se o filtro vale no vídeo todo.
+  A última linha é um JSON com o ΔE00 médio num trecho fora do ajuste e o `resultado`: `aceita` (até 2: é a
+  cor dela; o look feito no olho deu 5,46, o LUT 1,43), `atenção` (de 2 a 3: mostre o
+  `<nome>-comparacao.jpg` e ela decide) ou `refaz` (acima de 3: confira se os dois vídeos são o mesmo trecho
+  e se o filtro vale no vídeo todo). `--comparar "<outro.cube>"` mede outro LUT nos mesmos quadros.
   Sem os dois arquivos, a cor fica como descrição (quente, fria, contraste) e o LUT é pedido para depois.
 
 ## Sem ffmpeg

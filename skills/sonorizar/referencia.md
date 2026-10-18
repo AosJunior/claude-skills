@@ -5,7 +5,7 @@ O Claude escreve o `som.json` em `<pasta do vídeo>/som/`. Fonte da verdade do f
 
 ```json
 {
-  "video": "../insercoes/video-insercoes.mp4",
+  "video": "../insercoes/final-insercoes.mp4",
   "saida": "video-com-som.mp4",
   "legenda": "../decupagem/legenda.srt",
   "palavras": "../decupagem/palavras-corte.json",
@@ -42,9 +42,10 @@ O Claude escreve o `som.json` em `<pasta do vídeo>/som/`. Fonte da verdade do f
 ## Tempos
 
 Todo tempo (`de`, `ate`, `em`, `t`) aceita segundos, `"mm:ss,cc"` ou uma âncora na fala (contrato, seção 2):
-`"F36"`, `"F36:fim"`, `"F36:Isso"`, `"F36:Isso#2"`, `"F36:3"`, `"F1:fim+0.25"`. As âncoras pedem o
-`palavras-corte.json`. Em `ate`, `"F36"` e `"F36:Isso"` valem o **fim** da frase ou da palavra. Âncora numa
-palavra que o corte tirou para o script com a palavra que sumiu.
+`"F36"`, `"F36:fim"`, `"F36:Isso"`, `"F36:Isso#2"`, `"F36:3"`, `"F36:emenda"`, `"F1:fim+0.25"`. As âncoras pedem
+o `palavras-corte.json`. Em `ate`, `"F36"` e `"F36:Isso"` valem o **fim** da frase ou da palavra. Âncora numa
+palavra que o corte tirou para o script com a palavra que sumiu. Tempo a menos de 3 quadros de uma emenda vale a
+emenda, como na `/inserir`.
 
 ## sons
 
@@ -57,7 +58,8 @@ completado pela linha do arquivo no `marca/sons/creditos.md`:
 | `trilhas/gentlemen.wav` | Gentlemen | Vendla | Epidemic Sound | 0722c45e-… | assinatura Epidemic Sound da conta conectada |
 ```
 
-A coluna `Arquivo` é obrigatória (vale o nome do arquivo); as outras, as que existirem. O ID entra na licença.
+A coluna `Arquivo` é obrigatória (vale o nome do arquivo); as outras, as que existirem (colunas a mais, como
+"Clima" ou "Uso", são ignoradas, e pode haver uma tabela para trilhas e outra para efeitos). O ID entra na licença.
 
 ## trilha
 
@@ -68,7 +70,7 @@ Um objeto (uma faixa no vídeo todo, o formato antigo) ou uma lista de faixas em
 | `som` | | nome em `sons` |
 | `de` | 0 na 1ª | onde a faixa entra no vídeo; na 2ª em diante é o ponto da **troca** |
 | `ate` | até a troca ou o fim | só para acabar antes: deixa silêncio até a próxima faixa |
-| `inicio` | 0 | o ponto da música que toca quando ela entra (s ou `"mm:ss,cc"`) |
+| `inicio` | 0 | o ponto da música que toca quando ela entra (s ou `"mm:ss,cc"`); `src` aqui é erro (é das camadas) |
 | `abaixo_da_voz` | 16 | quantos LU a faixa fica abaixo da voz quando ninguém fala; durante a fala ela abaixa mais, sozinha |
 | `cruzar` | 0,5 | segundos de crossfade na troca para esta faixa, centrado no `de` |
 | `fade_in` | 1 | entrada do silêncio (1ª faixa, ou depois de um `ate`) |

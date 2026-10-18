@@ -26,13 +26,15 @@ Todo tempo (`de`, `ate`, `t`, `t_direita`, `pessoa[].de`) aceita:
 | relógio | `"00:42,90"` | idem |
 | frase | `"F15"` | início da frase F15 (em `ate`: fim dela) |
 | frase:borda | `"F15:inicio"`, `"F15:fim"` | início ou fim da frase |
-| frase:palavra | `"F15:repente"`, `"F15:repente#2"` | início da 1ª (ou 2ª) vez da palavra na frase; em `ate`, o fim dela. Ignora acento, caixa, pontuação e vale a palavra já corrigida em `correcoes` |
+| frase:palavra | `"F15:repente"`, `"F15:repente#2"` | início da 1ª (ou 2ª) vez da palavra na frase; em `ate`, o fim dela. Ignora acento, caixa e pontuação; vale a palavra da `transcricao.txt` (`correcoes` muda só a legenda) |
 | frase:índice | `"F15:3"` | 3ª palavra da frase (contando de 1). Para a palavra "10", escreva `"F81:10#1"` |
+| emenda | `"F15:emenda"` | o corte da imagem logo antes da F15: a camada que acaba junto com o plano usa `"ate": "<1ª frase do plano seguinte>:emenda"` |
 | deslocamento | `"F1:fim+0.25"`, `"F20:mais-0.1"` | qualquer âncora mais ou menos segundos |
 
 `F<n>` é o id da frase na `decupagem/transcricao.txt` do bruto: não muda com um novo corte. Quem resolve é o
-`decupagem/palavras-corte.json`. Âncora que cai numa palavra ou frase que o corte tirou faz o script parar e
-dizer qual sumiu.
+`decupagem/palavras-corte.json`, pelas regras do contrato (seção 2). Âncora que cai numa palavra ou frase que o
+corte tirou faz o script parar e dizer qual sumiu. Todo tempo que cai a menos de 3 quadros de uma emenda vai
+para a emenda (sem quadro solto); o script diz quais encostou.
 
 ## estilo
 
@@ -123,8 +125,9 @@ Por tipo:
 - `faixa`: `texto`, `y` (alto da caixa), `x` (padrão: centrada), `largura` (898), `altura` (104), `raio`
   (17), `fundo` (#FCFCFC), `tinta` (#111111), `fonte`, `tamanho` (58; encolhe até caber).
 - `html`: `modelo` (um `.html` de 1080×1920 com fundo transparente, por exemplo `marca/letterings/numero.html`)
-  e `campos` (`{{campo}}` no modelo vira o texto, escapado). Fontes e imagens do modelo valem relativas à
-  pasta dele.
+  e `campos` (`{{campo}}` no modelo vira o texto, escapado). Todo campo do modelo vai em `campos`; o opcional,
+  com `""`. Fontes e imagens do modelo valem relativas à pasta dele. Modelo que se arruma por script marca
+  `document.body.dataset.pronto` no fim, e a foto espera por isso (contrato, seção 4.2).
 
 Arquivo de `brutos/` precisa de uma linha em `brutos/fontes.md` com o nome dele.
 
@@ -169,9 +172,12 @@ Arquivo de `brutos/` precisa de uma linha em `brutos/fontes.md` com o nome dele.
 ## Saídas
 
 - `<vídeo>-insercoes.mp4`, `legenda-curta.srt`, `cartoes.png`, `quadros/folha.jpg`.
-- `.dados/geometria.json`: tudo o que foi desenhado, no tempo final (`legenda`, cartões, camadas com a caixa
-  `[x, y, w, h]`, divididas com o `corte`), para a `/criticar` medir.
-- `.dados/mascaras/`: máscara da pessoa (ffv1 cinza, faixa completa) só nos trechos com camada `atras`.
+- `.dados/geometria.json`: tudo o que foi desenhado, no tempo final, para a `/criticar` medir (formato no
+  contrato, seção 4.3): legendas com `destaque`, cartões com `lugar: "cartao"`, camadas com a caixa
+  `[x, y, w, h]` e o `texto` de faixa e html, divididas com `corte`, `laterais` e `pessoa`, `aceito` onde houver
+  e a `zona_segura`.
+- `.dados/mascaras/m-<q0>-<q1>-<motor>.mkv`: máscara da pessoa (ffv1 cinza, faixa completa) só nos trechos com
+  camada `atras`.
   Motor: `--mascara auto` (padrão: Apple Vision no Mac com chip M e macOS 14+, senão RobustVideoMatting),
   `vision` ou `rvm`. O RobustVideoMatting (Peter Lin, licença GPL-3.0) é baixado na primeira vez do GitHub
   do autor para `~/.cache/claude-skills/inserir/`; o kit não o empacota.

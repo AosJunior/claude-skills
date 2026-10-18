@@ -8,8 +8,10 @@ Uso:
   uv run "<skill>/scripts/cortar.py" "<pasta decupagem>" --resumo   só confere: durações e tempos finais
   uv run "<skill>/scripts/cortar.py" "<pasta decupagem>"            legenda.srt, premiere.xml, capcut.md, previa.mp4
   uv run "<skill>/scripts/cortar.py" "<pasta decupagem>" --final    o mesmo, com final.mp4 (1080 no lado curto)
-Aceita também o caminho do vídeo no lugar da pasta. Todos gravam palavras-corte.json (tempo de cada palavra
-no vídeo cortado, para a /inserir, a /sonorizar e a /criticar).
+Aceita também o caminho do vídeo no lugar da pasta. Todos gravam palavras-corte.json (tempo de cada palavra, as
+bordas de cada trecho e as emendas no vídeo cortado, para a /inserir, a /sonorizar e a /criticar). Depois do
+render, as bordas são as medidas no vídeo (quadros contados); no --resumo, as previstas, ou as medidas do último
+render se o corte não mudou.
 
 cortes.json (o Claude escreve; a ordem dos trechos é a ordem do vídeo final). Referência completa em
 referencia.md, ao lado do SKILL.md:
@@ -25,6 +27,7 @@ referencia.md, ao lado do SKILL.md:
 Sem velocidade e sem zoom, o vídeo sai num render só (o caminho de sempre). Com eles, sai em pedaços
 guardados em .dados/pedacos-*/ pelo conteúdo: uma correção refaz só os pedaços que mudaram.
 """
+import bisect
 import hashlib
 import json
 import math
@@ -44,9 +47,9 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import (CAP_PALAVRA, achar_pasta, assinatura_video, chave_palavra, checar_ffmpeg, encoder,  # noqa: E402
-                   fmt_dur, fmt_num, fmt_tempo, gravar_json, hwaccel, ler_json, proxy_valido, rodar, sair, tamanho,
-                   utf8)
+from comum import (CAP_PALAVRA, Ancoras, ErroContrato, achar_pasta, assinatura_video, checar_ffmpeg,  # noqa: E402
+                   encoder, fmt_dur, fmt_num, fmt_tempo, gravar_json, hwaccel, ler_json, proxy_valido, rodar, sair,
+                   tamanho, utf8)
 from cor import filtro_da_pasta  # noqa: E402
 
 PAD_IN, PAD_OUT = 0.10, 0.18      # folga antes e depois da fala (valores do pipeline de edição)
@@ -64,63 +67,21 @@ VERSAO_PEDACO = 1
 
 # ---------------------------------------------------------------- leitura do cortes.json
 
-ANCORA = re.compile(r"[Ff](\d+)(?::([^+]*?))?([+-]\d+(?:[.,]\d+)?)?")
-
-
 def palavras_da_frase(f, pal):
     """Índices das palavras com texto da frase (a palavra n da frase é a n-ésima desta lista)."""
-    return [i for i in range(f["i0"], f["i1"] + 1) if pal[i]["w"]]
+    return [i for i in range(f["i0"], f["i1"] + 1) if str(pal[i]["w"]).strip()]
 
 
-def ler_tempo(v, frases, pal, lado, onde):
-    """(segundos do bruto, índice da palavra-limite ou None). A âncora de palavra ("F3:2", "F3:loja", "F3:fim")
-    devolve também o índice: o Whisper sobrepõe palavras coladas, e o limite pelo índice não deixa a vizinha
-    entrar pelo tempo. Frase inteira, relógio, segundos e deslocamento ficam só no tempo (como no v1)."""
-    if isinstance(v, (int, float)) and not isinstance(v, bool):
-        return float(v), None
-    s = str(v).strip()
-    m = ANCORA.fullmatch(s)
-    if m:
-        fid = f"F{int(m.group(1))}"
-        f = frases.get(fid)
-        if not f:
-            sair(f"cortes.json, {onde}: não existe a frase {fid} na transcricao.txt.")
-        alvo = (m.group(2) or "").strip()
-        i = None
-        if not alvo:
-            t = f["ini"] if lado == "de" else f["fim"]
-        elif chave_palavra(alvo) == "inicio":
-            t, i = f["ini"], f["i0"]
-        elif alvo.lower() == "fim":
-            t, i = f["fim"], f["i1"]
-        else:
-            idx = palavras_da_frase(f, pal)
-            if alvo.isdigit():
-                n = int(alvo)
-                if not 1 <= n <= len(idx):
-                    sair(f"cortes.json, {onde}: {s} pede a palavra {n}, mas a frase {fid} tem {len(idx)} palavras "
-                         f"(«{f['texto']}»).")
-                i = idx[n - 1]
-            else:
-                nome, _, vez = alvo.partition("#")
-                vez = int(vez) if vez.isdigit() else 1
-                achadas = [i for i in idx if chave_palavra(pal[i]["w"]) == chave_palavra(nome)]
-                if len(achadas) < vez:
-                    sair(f"cortes.json, {onde}: não achei «{nome}»" + (f" pela {vez}ª vez" if vez > 1 else "")
-                         + f" na frase {fid} («{f['texto']}»).")
-                i = achadas[vez - 1]
-            t = pal[i]["ini"] if lado == "de" else fim_real(pal[i])
-        if m.group(3):
-            return t + float(m.group(3).replace(",", ".")), None
-        return t, i
+def ler_tempo(v, anc, lado, onde):
+    """(segundos do bruto, índice da palavra-limite ou None), pelas âncoras do contrato (contrato.py). A âncora de
+    palavra ("F3:2", "F3:loja", "F3:fim") devolve também o índice: o Whisper sobrepõe palavras coladas, e o limite
+    pelo índice não deixa a vizinha entrar pelo tempo. Frase inteira, relógio, segundos e deslocamento ficam só no
+    tempo (como no v1)."""
     try:
-        partes = [float(p) for p in s.replace(",", ".").split(":")]
-        if 1 <= len(partes) <= 3:
-            return sum(p * 60 ** i for i, p in enumerate(reversed(partes))), None
-    except ValueError:
-        pass
-    sair(f"cortes.json, {onde}: não entendi o tempo {v!r}. Use \"F12\", \"F12:3\", \"F12:palavra\", \"F12:fim\", "
-         "\"01:23,45\" ou segundos (83.45).")
+        t, w = anc.resolver(v, fim=(lado == "ate"))
+    except ErroContrato as e:
+        sair(f"cortes.json, {onde}: {e}")
+    return t, (w["i"] if w else None)
 
 
 def numero(v, onde, minimo=None, maximo=None):
@@ -146,6 +107,7 @@ def ler_cortes(pasta, frases, pal, dur):
     if not trechos:
         sair("O cortes.json precisa de uma lista \"trechos\" com pelo menos um trecho.")
     avisos = []
+    anc = Ancoras.do_bruto(list(frases.values()), pal, CAP_PALAVRA)
     zc = c.get("zoom") or {}
     if not isinstance(zc, dict):
         sair("cortes.json, zoom: use {\"ancora\": [0.5, 0.4], \"niveis\": [1.0, 1.12, 1.2, 1.3], \"alternar_na_pausa\": true}.")
@@ -159,8 +121,8 @@ def ler_cortes(pasta, frases, pal, dur):
     for k, t in enumerate(trechos, 1):
         if not isinstance(t, dict) or "de" not in t or "ate" not in t:
             sair(f"cortes.json, trecho {k}: cada trecho precisa de \"de\" e \"ate\".")
-        de, i_de = ler_tempo(t["de"], frases, pal, "de", f"trecho {k}")
-        ate, i_ate = ler_tempo(t["ate"], frases, pal, "ate", f"trecho {k}")
+        de, i_de = ler_tempo(t["de"], anc, "de", f"trecho {k}")
+        ate, i_ate = ler_tempo(t["ate"], anc, "ate", f"trecho {k}")
         de, ate = max(0.0, de), min(dur, ate)
         if ate <= de:
             sair(f"cortes.json, trecho {k}: o fim ({fmt_tempo(ate)}) vem antes do início ({fmt_tempo(de)}).")
@@ -389,8 +351,87 @@ def palavras_finais(segs, pal, fps):
     return out
 
 
-def palavras_corte(pf, pal, frases, fps, velocidade, duracao, video):
-    """decupagem/palavras-corte.json (contrato, seção 3.2): cada palavra e frase que ficou, no tempo final."""
+def bordas(segs, fps, vel):
+    """Bordas previstas no tempo final: [0, cada emenda, fim] em segundos (o vídeo muda de pedaço em cada emenda)."""
+    return [0.0] + [float(s["tl_out"] / fps) / vel for s in segs]
+
+
+def assinatura_corte(segs, fps, vel):
+    return hashlib.sha1(json.dumps([[s["fi"], s["fo"], s["k"]] for s in segs] + [str(fps), vel]).encode()).hexdigest()[:16]
+
+
+def remapear(t, prev, real):
+    """Tempo previsto -> tempo medido no vídeo renderizado, por partes: cada pedaço entre duas emendas estica igual."""
+    if not real or prev == real:
+        return t
+    j = max(0, min(len(prev) - 2, bisect.bisect_right(prev, t) - 1))
+    a, b, x, y = prev[j], prev[j + 1], real[j], real[j + 1]
+    return x + (t - a) * (y - x) / (b - a) if b > a else x
+
+
+def contar(arq):
+    """(quadros da imagem, amostras do som a 48 kHz) de um arquivo, contando os pacotes (sem decodificar)."""
+    r = rodar(["ffprobe", "-v", "error", "-count_packets", "-show_entries",
+               "stream=codec_type,nb_read_packets,duration_ts,time_base", "-of", "json", arq])
+    q = am = None
+    for st in json.loads(r.stdout or "{}").get("streams", []):
+        if st.get("codec_type") == "video" and q is None:
+            q = int(st.get("nb_read_packets") or 0)
+        elif st.get("codec_type") == "audio" and am is None and st.get("duration_ts"):
+            am = int(round(int(st["duration_ts"]) * Fraction(st.get("time_base") or "1/48000") * 48000))
+    return q, am
+
+
+def medir_render(dados, nome, segs, fps, vel, saida, pedacos=None):
+    """Bordas reais do vídeo renderizado (contrato 3.2): conta os quadros e as amostras de cada pedaço (render em
+    pedaços) e da saída, e grava .dados/medida-<nome>.json. Devolve (medida, aviso)."""
+    prev = bordas(segs, fps, vel)
+    q_out, a_out = contar(saida)
+    previstos = sum(s["fo"] - s["fi"] for s in segs)
+    aviso = ""
+    if pedacos:
+        cont = [contar(a) for a in pedacos]
+        quadros = [q for q, _ in cont]
+        fonte = "pedacos"
+    else:
+        quadros = [s["fo"] - s["fi"] for s in segs]
+        fonte = "saida"
+    # com velocidade, o fps da junção põe o quadro n do corte na vaga round(n / velocidade) da saída: a emenda
+    # cai no quadro da saída onde a imagem troca. Se a saída tiver outro total, o resto é repartido igual.
+    total = sum(quadros)
+    vagas = int(round(total / vel)) or 1
+    escala = (q_out / vagas) if q_out else 1.0
+    real, acc = [0.0], 0
+    for q in quadros:
+        acc += q
+        real.append(round(round(acc / vel) * escala / float(fps), 4))
+    if pedacos and any(q != s["fo"] - s["fi"] for q, s in zip(quadros, segs)):
+        aviso = "um pedaço saiu com quadros a mais ou a menos; as bordas no palavras-corte.json seguem o medido."
+    if a_out and q_out:
+        dif = a_out / 48000 - q_out / float(fps)
+        if abs(dif) > 1.5 / float(fps):
+            aviso += f" O som da saída tem {fmt_num(dif, 3)} s a mais que a imagem."
+    m = {"assinatura": assinatura_corte(segs, fps, vel), "video": nome, "fonte": fonte, "prev": prev, "real": real,
+         "quadros_saida": q_out, "quadros_previstos": int(round(previstos / vel)), "amostras_saida": a_out}
+    gravar_json(dados / f"medida-{Path(nome).stem}.json", m)
+    return m, aviso.strip()
+
+
+def medida_salva(dados, nome, segs, fps, vel):
+    p = dados / f"medida-{Path(nome).stem}.json"
+    try:
+        m = ler_json(p)
+        return m if m.get("assinatura") == assinatura_corte(segs, fps, vel) else None
+    except Exception:
+        return None
+
+
+def palavras_corte(pf, pal, frases, fps, velocidade, duracao, video, segs, medida=None):
+    """decupagem/palavras-corte.json (contrato, seção 3.2): cada palavra e frase que ficou, as bordas de cada trecho
+    e as emendas, no tempo final. Com `medida` (o vídeo já renderizado), tudo segue as bordas medidas nele."""
+    prev = bordas(segs, fps, velocidade)
+    real = medida["real"] if medida else None
+    R = (lambda t: round(remapear(float(t), prev, real), 3)) if real else (lambda t: round(float(t), 3))
     dono = {}
     for f in frases.values():
         for n, i in enumerate(palavras_da_frase(f, pal), 1):
@@ -398,8 +439,7 @@ def palavras_corte(pf, pal, frases, fps, velocidade, duracao, video):
     palavras = []
     for w, a, b, i, k in pf:
         fid, n = dono.get(i, ("", 0))
-        palavras.append({"w": w, "a": round(float(a), 3), "b": round(float(b), 3), "frase": fid, "n": n, "i": i,
-                         "trecho": k})
+        palavras.append({"w": w, "a": R(a), "b": R(b), "frase": fid, "n": n, "i": i, "trecho": k})
     blocos = []
     for p in palavras:
         if blocos and blocos[-1]["id"] == p["frase"] and blocos[-1]["trecho"] == p["trecho"]:
@@ -407,9 +447,15 @@ def palavras_corte(pf, pal, frases, fps, velocidade, duracao, video):
             blocos[-1]["ws"].append(p["w"])
         else:
             blocos.append({"id": p["frase"], "trecho": p["trecho"], "a": p["a"], "b": p["b"], "ws": [p["w"]]})
+    trechos = {}
+    for j, s in enumerate(segs):
+        x = trechos.setdefault(s["k"], {"n": s["k"], "a": R(prev[j])})
+        x["b"] = R(prev[j + 1])
     fps_txt = int(fps) if fps.denominator == 1 else round(float(fps), 3)
-    return {"versao": 1, "video": video, "duracao": round(duracao, 3), "fps": fps_txt,
-            "velocidade": velocidade,
+    return {"versao": 2, "video": video, "duracao": R(duracao), "fps": fps_txt,
+            "velocidade": velocidade, "medido": medida["fonte"] if medida else False,
+            "trechos": list(trechos.values()),
+            "emendas": [R(t) for t in prev[1:-1]],
             "frases": [{"id": f["id"], "a": f["a"], "b": f["b"], "texto": " ".join(f["ws"]), "trecho": f["trecho"]}
                        for f in blocos],
             "palavras": palavras}
@@ -655,7 +701,7 @@ def render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H
         if p not in usados:
             p.unlink(missing_ok=True)
     gb = sum(a.stat().st_size for a in arqs) / 1e9
-    return sum(1 for _, novo, _ in feitos if novo), len(arqs), tonemap, gb
+    return sum(1 for _, novo, _ in feitos if novo), len(arqs), tonemap, gb, arqs
 
 
 def render(pasta, info, segs, final, c):
@@ -697,12 +743,12 @@ def render(pasta, info, segs, final, c):
 
     if c["velocidade"] != 1 or any(s["z"] != 1 for s in segs):
         fonte_wh = tamanho(info) if px else (info["largura"], info["altura"])
-        novos, total, tonemap, gb = render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H,
-                                               filtro_cor, tentativas, parcial)
+        novos, total, tonemap, gb, arqs = render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W,
+                                                         H, filtro_cor, tentativas, parcial)
         parcial.replace(saida)
         p = rodar(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", saida])
         return (saida, float(p.stdout.strip() or 0), (W, H), tonemap, bool(px), bool(filtro_cor), centro,
-                (novos, total, gb))
+                (novos, total, gb, arqs))
 
     def montar(hw, tom):
         entradas, fc = [], []
@@ -792,7 +838,7 @@ def main():
     pf = [(w, a / vel, b / vel, i, k) for w, a, b, i, k in palavras_finais(segs, pal, fps)]
     final = "--final" in sys.argv
     nome = "final.mp4" if final or ("--resumo" in sys.argv and (pasta / "final.mp4").exists()) else "previa.mp4"
-    pc = palavras_corte(pf, pal, frases, fps, vel, final_s, nome)
+    pc = palavras_corte(pf, pal, frases, fps, vel, final_s, nome, segs, medida_salva(dados, nome, segs, fps, vel))
     gravar_json(pasta / "palavras-corte.json", pc)
 
     if "--resumo" in sys.argv:
@@ -821,7 +867,8 @@ def main():
                 print(f"     frases no final: {mapa}")
         for a in avisos:
             print(f"Aviso: {a}")
-        print("palavras-corte.json gravado (tempo de cada palavra no vídeo cortado).")
+        print("palavras-corte.json gravado (tempo de cada palavra no vídeo cortado; "
+              + (f"bordas medidas no {nome})." if pc["medido"] else "bordas previstas: o render mede as reais)."))
         return
 
     checar_ffmpeg()
@@ -838,6 +885,14 @@ def main():
     if not Path(info["arquivo"]).exists():
         sair(f"O vídeo original não está mais em {info['arquivo']}. Volte o arquivo para lá e rode de novo.")
     saida, dur, (W, H), tonemap, rapido, com_cor, centro, pedacos = render(pasta, info, segs, final, c)
+    # as bordas reais (quadros contados no que foi renderizado) vão para o palavras-corte.json (contrato 3.2)
+    medida, aviso_medida = medir_render(dados, saida.name, segs, fps, vel, saida, pedacos[3] if pedacos else None)
+    gravar_json(pasta / "palavras-corte.json", palavras_corte(pf, pal, frases, fps, vel, final_s, saida.name, segs,
+                                                              medida))
+    deriva = medida["real"][-1] - final_s
+    if aviso_medida or abs(deriva) > 0.5 / float(fps):
+        print(f"Aviso: bordas medidas no {saida.name}: o fim cai {fmt_num(deriva, 3)} s "
+              f"{'depois' if deriva > 0 else 'antes'} do previsto; o palavras-corte.json segue o medido. {aviso_medida}")
     ok = abs(dur - final_s) < 0.15
     print(f"{saida.name}: {fmt_dur(dur)} · {W}×{H} · render em {fmt_num(time.time() - t1)} s"
           + (" (da cópia leve)" if rapido else "")

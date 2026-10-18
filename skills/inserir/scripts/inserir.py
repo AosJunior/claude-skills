@@ -75,7 +75,7 @@ def ler_mapa(pasta, dec, marca, pasta_video):
     M = Mapa()
     M.correcoes = m.get("correcoes") or {}
     M.destaques = m.get("destaques") or []
-    anc = Ancoras(dec, M.correcoes)
+    anc = Ancoras(dec)
     M.ancoras = anc
     T = lambda v, onde, fim=False: anc.tempo(v, onde, fim)
     arq = lambda s, onde: caminho(s, pasta, marca, onde)
@@ -467,7 +467,11 @@ def desenhar(pasta_render, estilo, leg, ins, cams):
                     f.write_text(html_preenchido(x, pasta_render), encoding="utf-8")
                     pag2.goto(f.as_uri())
                     pag2.evaluate("document.fonts.ready")
-                    pag2.wait_for_timeout(100)
+                    if re.search(r"data-pronto|dataset\.pronto", f.read_text(encoding="utf-8")):
+                        # o modelo diz quando terminou de se arrumar (encolher linha larga, esconder campo vazio)
+                        pag2.wait_for_selector("body[data-pronto]", state="attached", timeout=15000)
+                    else:
+                        pag2.wait_for_timeout(100)
                     alvo = pag2
                 else:
                     pag.evaluate("() => { document.getElementById('cartao').className=''; "
@@ -692,10 +696,11 @@ def geometria(M, leg, nl, pares, medidas, nomes_cam, dur):
     from compor import caixa_girada
     itens = []
     for k, (x, n) in enumerate(zip(leg, nl), 1):
-        a, b, ws, y, _ = x
+        a, b, ws, y, aceito = x
         cx = (medidas.get(n) or {}).get("caixa")
         itens.append({"id": f"leg-{k:04d}", "tipo": "legenda", "texto": " ".join(w for w, _ in ws),
-                      "destaque": any(d for _, d in ws), "de": round(a, 3), "ate": round(b, 3), "caixa": cx})
+                      "destaque": any(d for _, d in ws), "de": round(a, 3), "ate": round(b, 3), "caixa": cx,
+                      **({"aceito": aceito} if aceito else {})})
     for (d, e), nome, t0, t1 in pares:
         itens.append({"id": f"insercao-{d['n']}" + (f"-{e}" if len(estados(d)) > 1 else ""), "tipo": d["tipo"],
                       "lugar": "cartao", "de": round(t0, 3), "ate": round(t1, 3),
@@ -711,11 +716,21 @@ def geometria(M, leg, nl, pares, medidas, nomes_cam, dur):
             cx = [round(b[0]), round(b[1]), round(b[2] - b[0]), round(b[3] - b[1])]
         else:
             cx = None
+        texto = c.get("texto") if c["tipo"] == "faixa" else (
+            " ".join(str(v) for v in (c.get("campos") or {}).values() if str(v).strip()) if c["tipo"] == "html" else None)
         itens.append({"id": c["id"], "tipo": c["tipo"], "lugar": c["lugar"], "de": round(c["de"], 3),
-                      "ate": round(c["ate"], 3), "caixa": cx, **({"aceito": c["aceito"]} if c.get("aceito") else {})})
+                      "ate": round(c["ate"], 3), "caixa": cx, **({"texto": texto} if texto else {}),
+                      **({"aceito": c["aceito"]} if c.get("aceito") else {})})
     for d in M.divididas:
         itens.append({"id": d["id"], "tipo": "dividida", "de": round(d["de"], 3), "ate": round(d["ate"], 3),
-                      "corte": d["corte"]})
+                      "corte": d["corte"], "laterais": d["laterais"],
+                      "pessoa": [{"de": round(pp["de"], 3), "recorte_y": pp["recorte_y"], "escala": pp["escala"]}
+                                 for pp in d["pessoa"]]})
+    for d in M.ins:   # o gancho em tela dividida do formato antigo (inserção "dividida") também é uma dividida
+        if d["tipo"] == "dividida":
+            itens.append({"id": f"insercao-{d['n']}-dividida", "tipo": "dividida", "de": round(d["de"], 3),
+                          "ate": round(d["ate"], 3), "corte": 960, "laterais": "preto",
+                          "pessoa": [{"de": round(d["de"], 3), "recorte_y": int(d.get("recorte_y", 320)), "escala": 1.0}]})
     return {"duracao": round(dur, 3), "quadro": [1080, 1920], "zona_segura": M.estilo["zona_segura"], "itens": itens}
 
 
@@ -800,6 +815,11 @@ def main():
         print("Sem arquivo de fonte no estilo: usando a fonte do sistema (Helvetica no Mac, Segoe no Windows).")
     for av in conferir(M, info["dur"]):
         print("Aviso:", av)
+    enc = M.ancoras.encostadas
+    if enc:
+        print(f"{len(enc)} borda(s) a menos de 3 quadros de uma emenda foram para a emenda (contrato, seção 2): "
+              + ", ".join(f"{onde.replace('insercoes.json, ', '')} {fmt_tempo(t)}→{fmt_tempo(t2)}" for onde, t, t2 in enc[:6])
+              + (" …" if len(enc) > 6 else ""))
 
     render = pasta / ".render"
     nomes, medidas = desenhar(render, estilo, leg, M.ins, M.camadas)

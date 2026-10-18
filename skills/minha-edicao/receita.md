@@ -58,7 +58,7 @@ Quem lê a composição é a `/inserir`: tudo vira `divididas`, `camadas` e `leg
 
 - **Quadro e margens**: zona segura em y (o padrão é 260 a 1600: acima de 260 fica a barra do Instagram, abaixo de 1600 o nome, a legenda do post e os botões) e margem lateral (70 px). Botões do Instagram ocupam também a lateral direita de y 1100 a 1700: nada importante em x acima de 960 nessa faixa.
 - **Camadas por bloco**: tabela bloco · pessoa (tela cheia, ou metade de baixo da dividida com `recorte_y`) · `atras` · `frente` · `topo` · legenda (y ou "some"). Cada camada com caixa em px (`x`, `y`, `w`; `h` quando importa), `rot`, `raio` e de onde vem a mídia (vídeo de outro criador, print, foto, lettering).
-- **Âncoras na fala**: toda camada entra e sai numa âncora do contrato (`"F15:repente"`, `"F17:fim"`, `"F1:fim+0.25"`), nunca em segundo solto. Regra para escolher: entra na palavra que nomeia o que aparece; sai no fim da frase ou na entrada da próxima camada.
+- **Âncoras na fala**: toda camada entra e sai numa âncora do contrato (`"F15:repente"`, `"F17:fim"`, `"F1:fim+0.25"`), nunca em segundo solto. Regra para escolher: entra na palavra que nomeia o que aparece; sai no fim da frase, na entrada da próxima camada ou, quando acaba junto com o plano, em `"<frase do plano seguinte>:emenda"`.
 - **Densidade**: um evento visual (corte, camada, lettering, troca de legenda de lugar) a cada quantos segundos, o máximo sem evento (a `/criticar` reprova acima de 8 s) e quantas camadas ao mesmo tempo (no máximo 1 lettering e 1 camada de vídeo).
 - **Posição por tipo de inserção**: tabela tipo · zona em y · lugar · o que acontece com a legenda. Ex.: lettering entre y 300 e 780, acima da cabeça; vídeo de outro criador `atras`, com máscara, ao lado da cabeça; print no peito com a legenda subindo.
 - **Variação**: as posições se alternam (esquerda, direita, alto); a `/criticar` reprova inserções todas na mesma região.
@@ -66,7 +66,7 @@ Quem lê a composição é a `/inserir`: tudo vira `divididas`, `camadas` e `leg
 
 ## Receita de estilo (`marca/estilo.md`)
 
-Sem frontmatter: não é skill, é a marca. Moldes: [exemplos/estilo-ana/SKILL.md](exemplos/estilo-ana/SKILL.md) (completo) e [exemplos/legenda-limpa/SKILL.md](exemplos/legenda-limpa/SKILL.md) (só legenda). Seções, nesta ordem; a que ela não definiu fica de fora e vale o padrão do kit:
+Sem frontmatter: não é skill, é a marca. Moldes: [exemplos/estilo-ana/estilo.md](exemplos/estilo-ana/estilo.md) (completo) e [exemplos/legenda-limpa/estilo.md](exemplos/legenda-limpa/estilo.md) (só legenda). Seções, nesta ordem; a que ela não definiu fica de fora e vale o padrão do kit:
 
 1. `# Estilo de <nome>` e uma linha: o jeito e a sensação que ele passa.
 2. `## Fontes`: tabela uso · fonte (nome e peso) · arquivo em `marca/fontes/`.

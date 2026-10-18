@@ -56,7 +56,9 @@ Ele grava em `critica/`:
 - `fala-final.json`: a transcrição do vídeo final com tempo por palavra.
 
 O que falta ele avisa e pula: sem `insercoes/.dados/geometria.json` saem margem, posições e a comparação da
-legenda; sem `decupagem/palavras-corte.json` as emendas vêm dos cortes da imagem e não há texto esperado.
+legenda; sem `decupagem/palavras-corte.json` as emendas vêm dos cortes da imagem e não há texto esperado; com
+ele sem bordas medidas (`"medido": false`), a emenda fica no tempo previsto. Peça com `"aceito"` no
+`insercoes.json` fora da margem fica em atenção, não reprova.
 Diga à pessoa, em uma linha, o que ficou de fora.
 
 Pronto quando ele imprime "Pronto" e o item "Folha de quadros" passa (cobertura de 100 %).
@@ -86,7 +88,7 @@ roda a skill de origem e volta ao passo 1.
 
 | Reprovação | Skill · arquivo · campo |
 |---|---|
-| Quadro solto | `/inserir` · `insercoes.json` · `de`/`ate` da camada ou da dividida que troca 1 quadro antes do corte (as duas bordas no mesmo quadro); ou `/decupar` · `cortes.json` · `ajustes` `"T5.ate"` |
+| Quadro solto | `/inserir` · `insercoes.json` · `de`/`ate` da camada ou da dividida que troca perto do corte: `"<frase do plano seguinte>:emenda"` põe a borda no corte (contrato, seção 2); ou `/decupar` · `cortes.json` · `ajustes` `"T5.ate"` |
 | Emenda: pausa longa, sem respiro, corta dentro do som | `/decupar` · `cortes.json` · `ajustes` `{"T5.ate": -0.04, "T6.de": 0.04}` ou `pausa_max` |
 | Emenda: volume da voz pula | `/decupar` · `cortes.json` · trocar a tomada do trecho (outro `de`/`ate`) |
 | Gagueira, repetição, palavra que sumiu | `/decupar` · `cortes.json` · `trechos`: começar ou terminar o trecho na palavra certa (`"de": "F3:2"`) |

@@ -1,11 +1,9 @@
 """Funções comuns da /inserir. Roda igual no Mac e no Windows."""
 import json
-import os
 import re
 import shutil
 import subprocess
 import sys
-import unicodedata
 from pathlib import Path
 
 
@@ -51,126 +49,46 @@ def fmt_num(x, casas=1):
     return f"{x:.{casas}f}".replace(".", ",")
 
 
+# achar a marca, caminhos marca/ e âncoras na fala: contrato.py, igual nas 4 skills do kit
+import contrato  # noqa: E402
+from contrato import ErroContrato, achar_marca, chave, texto_marca  # noqa: E402,F401
+
+
 def tempo(v, onde=""):
-    """Aceita segundos (12.5), "mm:ss,cc" ou "mm:ss.cc"."""
-    if isinstance(v, (int, float)):
-        return float(v)
-    m = re.fullmatch(r"\s*(?:(\d+):)?(\d+)(?:[.,](\d+))?\s*", str(v))
-    if not m:
-        sair(f"{onde}: não entendi o tempo {v!r}. Use \"01:23,45\" ou segundos (83.45).")
-    mi, se, fr = m.groups()
-    return int(mi or 0) * 60 + int(se) + (float("0." + fr) if fr else 0.0)
-
-
-def achar_marca(pasta):
-    """Sobe a partir da pasta do vídeo até achar marca/estilo.md (ou chegar na raiz do disco).
-    Devolve a pasta marca/ ou None. Contrato do kit de edição, seção 1."""
-    p = Path(pasta).expanduser().absolute()
-    for d in (p, *p.parents):
-        if (d / "marca" / "estilo.md").is_file():
-            return d / "marca"
-    return None
+    """Segundos (12.5), "mm:ss,cc" ou "h:mm:ss.cc"; âncora na fala é com a classe Ancoras."""
+    try:
+        return contrato.segundos(v)
+    except ErroContrato as e:
+        sair(f"{onde}: {e}")
 
 
 def caminho(s, base, marca, onde=""):
-    """Caminho de um JSON: "marca/..." vale contra a pasta de edição (a que tem marca/); o resto, contra a
-    pasta do próprio JSON. Não segue atalhos (symlinks): a origem em brutos/ é conferida pelo caminho escrito."""
-    s = str(s)
-    if s.replace("\\", "/").startswith("marca/"):
-        if not marca:
-            sair(f"{onde}: o caminho {s} começa com marca/, mas não achei a pasta marca (com estilo.md) "
-                 "na pasta do vídeo nem acima dela.")
-        return Path(os.path.normpath(marca.parent / s))
-    p = Path(s).expanduser()
-    return Path(os.path.normpath(p if p.is_absolute() else Path(base) / p))
-
-
-# ---------------------------------------------------------------- âncoras de tempo (contrato, seção 2)
-
-ANCORA = re.compile(r"^\s*(F\d+)(?::(.+?))?(?:([+-])(\d+(?:[.,]\d+)?))?\s*$")
-
-
-def chave(w):
-    """Palavra para comparar: sem acento, sem caixa e sem pontuação ("Aluga-se," -> "alugase")."""
-    w = unicodedata.normalize("NFKD", str(w)).encode("ascii", "ignore").decode().lower()
-    return re.sub(r"[^a-z0-9]", "", w)
+    """Caminho de um JSON (contrato, seção 1): "marca/..." contra a pasta de edição; o resto, contra a pasta do JSON.
+    Não segue atalhos (symlinks): a origem em brutos/ é conferida pelo caminho escrito."""
+    try:
+        return contrato.caminho(s, base, marca)
+    except ErroContrato as e:
+        sair(f"{onde}: {e}.")
 
 
 class Ancoras:
-    """Resolve "F15", "F15:fim", "F15:repente#2", "F15:3", "F1:fim+0.25" pelo decupagem/palavras-corte.json.
-    Sem esse arquivo, só aceita segundos e relógio."""
+    """As âncoras do contrato (contrato.py) pelo decupagem/palavras-corte.json, com o erro dito no script. Toda borda
+    que cai a menos de 3 quadros de uma emenda encosta nela (sem quadro solto); `encostadas` guarda quais."""
 
-    def __init__(self, pasta_decupagem, correcoes=None):
-        self.ok = False
-        self.frases, self.palavras, self.original = {}, {}, {}
-        p = Path(pasta_decupagem) / "palavras-corte.json"
-        if p.exists():
-            d = ler_json(p)
-            self.frases = {f["id"]: f for f in d.get("frases", [])}
-            for w in d.get("palavras", []):
-                self.palavras.setdefault(w["frase"], []).append(w)
-            self.duracao = d.get("duracao")
-            self.ok = True
-        corr = {chave(k): v for k, v in (correcoes or {}).items()}
-        self.corr = corr
-        t = Path(pasta_decupagem) / "transcricao.txt"
-        if t.exists():   # o texto da frase no bruto: diz se a palavra existia e o corte tirou
-            for linha in t.read_text(encoding="utf-8").splitlines():
-                m = re.match(r"\s*(F\d+)\s+\[[^\]]*\]\s+(.*)$", linha)
-                if m:
-                    self.original[m.group(1)] = m.group(2)
-
-    def _bate(self, w, alvo):
-        k = chave(w)
-        return k == alvo or chave(self.corr.get(k, "")) == alvo
+    def __init__(self, pasta_decupagem):
+        self.a = contrato.Ancoras.de_corte(Path(pasta_decupagem) / "palavras-corte.json")
+        self.ok = self.a.sem_fala is None
+        self.encostadas = []
 
     def tempo(self, v, onde="", fim=False):
-        if v is None:
-            sair(f"{onde}: falta o tempo.")
-        if isinstance(v, (int, float)) or not re.match(r"\s*F\d", str(v)):
-            return tempo(v, onde)
-        m = ANCORA.match(str(v))
-        if not m:
-            sair(f"{onde}: não entendi a âncora {v!r}. Exemplos: \"F15\", \"F15:fim\", \"F15:repente\", \"F15:3\", "
-                 "\"F1:fim+0.25\".")
-        fid, parte, sinal, desl = m.groups()
-        if not self.ok:
-            sair(f"{onde}: a âncora {v!r} precisa do decupagem/palavras-corte.json, que a /decupar grava. "
-                 "Rode a /decupar de novo ou use segundos.")
-        desl = (-1 if sinal == "-" else 1) * float(desl.replace(",", ".")) if desl else 0.0
-        if fid not in self.frases:
-            if fid in self.original:
-                sair(f"{onde}: a frase {fid} («{self.original[fid][:60]}») saiu no corte. Escolha outra âncora.")
-            sair(f"{onde}: a frase {fid} não existe na transcrição.")
-        f, ws = self.frases[fid], self.palavras.get(fid, [])
-        if not parte:
-            return (f["b"] if fim else f["a"]) + desl
-        parte = parte.strip()
-        if parte.lower() in ("inicio", "início"):
-            return f["a"] + desl
-        if parte.lower() == "fim":
-            return f["b"] + desl
-        if parte.isdigit():
-            n = int(parte)
-            w = next((w for w in ws if w.get("n") == n), None)
-            if not w:
-                orig = (self.original.get(fid) or "").split()
-                nome = f" («{orig[n - 1]}»)" if 0 < n <= len(orig) else ""
-                sair(f"{onde}: a palavra {n} da {fid}{nome} saiu no corte. Escolha outra âncora.")
-            return (w["b"] if fim else w["a"]) + desl
-        palavra, _, k = parte.partition("#")
-        k = int(k) if k.isdigit() else 1
-        alvo = chave(palavra)
-        achou = [w for w in ws if self._bate(w["w"], alvo)]
-        if len(achou) < k:
-            orig = self.original.get(fid, "")
-            n_orig = sum(1 for w in orig.split() if self._bate(w, alvo))
-            if n_orig >= k:
-                sair(f"{onde}: «{palavra}» da {fid} saiu no corte. Escolha outra âncora.")
-            sair(f"{onde}: não achei «{palavra}»{'' if k == 1 else f' (vez {k})'} na {fid}. "
-                 f"O que ficou dela no corte: «{' '.join(w['w'] for w in ws)}».")
-        w = achou[k - 1]
-        return (w["b"] if fim else w["a"]) + desl
+        try:
+            t = self.a.resolver(v, fim)[0]
+        except ErroContrato as e:
+            sair(f"{onde}: {e}")
+        t2, mudou = self.a.encostar(t)
+        if mudou:
+            self.encostadas.append((onde, t, t2))
+        return t2
 
 
 def ler_srt(p):

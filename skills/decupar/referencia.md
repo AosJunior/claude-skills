@@ -42,10 +42,14 @@ como no primeiro formato: o mesmo corte e o mesmo render.
 | relógio | `"01:47,30"` | o tempo da transcrição | idem |
 | segundos | `107.3` | idem | idem |
 
-- `F<n>` é o número da frase na `transcricao.txt`. As palavras contam de 1 dentro da frase, e a
-  comparação ignora acento, caixa e pontuação ("Vocês," = "voces").
+- `F<n>` é o número da frase na `transcricao.txt`. As palavras contam de 1 dentro da frase (só as com
+  texto), e a comparação ignora acento, caixa e pontuação ("Vocês," = "voces"). Número falado vai com
+  `#`: a palavra "10" é `"F81:10#1"` (`"F81:10"` é a 10ª palavra).
+- Âncora de palavra (posição, texto, `inicio`, `fim`) sem deslocamento também limita o trecho pela
+  posição da palavra, para a vizinha colada não entrar. Com deslocamento, vale só o tempo.
 - Âncora que não existe para o script e diz qual: frase que não existe, palavra que não está na
-  frase, índice maior que a frase.
+  frase, índice maior que a frase. As regras são as do contrato (seção 2), no `scripts/contrato.py`,
+  igual nas 4 skills; `"F12:emenda"` só existe no vídeo cortado.
 
 ## Bordas
 
@@ -70,7 +74,7 @@ o `--resumo` e o `palavras-corte.json` já saem no tempo acelerado. O `premiere.
 - `zoom.niveis`: os níveis que a pessoa usa, por exemplo `[1.0, 1.12, 1.2, 1.3]`.
 - `zoom.alternar_na_pausa: true`: cada emenda **dentro** de um trecho (pausa tirada) troca para o
   nível vizinho (o de baixo; no mais baixo, o de cima) e volta na emenda seguinte. A emenda vira um
-  corte de câmera, e o pulo de imagem some.
+  corte de câmera, e o pulo de imagem some. Pedaço com menos de 0,4 s não troca (seria um piscar).
 - O recorte sai da resolução original do bruto (4K vira 1080 sem perder nitidez até 2×).
 
 ## Vertical (só vídeo horizontal)
@@ -96,5 +100,11 @@ o script avisa. Um caminho que começa com `marca/` vale a partir da pasta de ed
 ## palavras-corte.json
 
 Gravado em toda rodada do `cortar.py` (também no `--resumo`), no formato do contrato (seção 3.2): cada
-palavra e cada frase que ficou, com `a` e `b` no tempo do vídeo cortado e acelerado. É o que a
-`/inserir`, a `/sonorizar` e a `/criticar` leem para achar "F15:repente" no vídeo final.
+palavra e cada frase que ficou, as bordas de cada trecho (`trechos`) e as trocas de pedaço (`emendas`),
+no tempo do vídeo cortado e acelerado. É o que a `/inserir`, a `/sonorizar` e a `/criticar` leem para
+achar "F15:repente" no vídeo final.
+
+Depois do render, as bordas são **medidas** no que saiu (quadros contados em cada pedaço e na saída) e
+todo tempo do arquivo segue a medida (`"medido": "pedacos"` ou `"saida"`; a medida fica em
+`.dados/medida-<vídeo>.json`). O `--resumo` grava as bordas previstas (`"medido": false`), ou reaproveita
+a medida do último render quando o corte é o mesmo.

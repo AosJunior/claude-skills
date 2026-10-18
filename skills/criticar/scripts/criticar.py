@@ -51,8 +51,8 @@ def achar_video(pasta, som):
     v = mais_novo([p for p in (pasta / "entrega").glob("*") if p.suffix.lower() in VIDEO])
     if v:
         return v
-    if som and som.get("saida"):
-        p = relativo(pasta / "som", som["saida"])
+    if som:
+        p = relativo(pasta / "som", som.get("saida") or "video-com-som.mp4")
         if p.is_file():
             return p
     v = mais_novo(list((pasta / "insercoes").glob("*-insercoes.mp4")))
@@ -94,6 +94,8 @@ def eh_texto(i):
 
 
 def medir_zona(itens, zona):
+    """Texto fora da zona segura reprova; imagem fora dela, ou peça com "aceito" (decisão escrita no insercoes.json),
+    fica em atenção."""
     fora, avisos = [], []
     for i in itens:
         c = i.get("caixa")
@@ -103,8 +105,9 @@ def medir_zona(itens, zona):
         if topo >= zona[0] - 0.5 and pe <= zona[1] + 0.5:
             continue
         r = {"id": i.get("id"), "tipo": i.get("tipo"), "texto": i.get("texto", ""), "de": i.get("de"),
-             "ate": i.get("ate"), "caixa": c, "topo": topo, "pe": pe, "destaque": bool(i.get("destaque"))}
-        (fora if eh_texto(i) else avisos).append(r)
+             "ate": i.get("ate"), "caixa": c, "topo": topo, "pe": pe, "destaque": bool(i.get("destaque")),
+             "aceito": i.get("aceito")}
+        (fora if eh_texto(i) and not i.get("aceito") else avisos).append(r)
     return fora, avisos
 
 
@@ -288,7 +291,7 @@ def main():
     ins = ler_json(ins_p) if ins_p.is_file() else None
     itens = (geo or {}).get("itens", [])
     quadro = (geo or {}).get("quadro") or [info["largura"], info["altura"]]
-    zona = ((ins or {}).get("estilo") or {}).get("zona_segura") or ZONA_PADRAO
+    zona = (geo or {}).get("zona_segura") or ((ins or {}).get("estilo") or {}).get("zona_segura") or ZONA_PADRAO
     refs = sorted(p for p in (marca / "referencias").glob("*") if p.suffix.lower() in VIDEO | IMAGEM) \
         if marca and (marca / "referencias").is_dir() else []
     faltas = []
@@ -298,6 +301,9 @@ def main():
         faltas.append("insercoes/.dados/geometria.json (sem ele: zona segura, posições e SRT × gravada ficam de fora)")
     if not srt_p:
         faltas.append("legenda-curta.srt (sem ela: SRT × gravada fica de fora)")
+    if pc and not pc.get("medido"):
+        faltas.append("bordas medidas no palavras-corte.json (o cortar.py grava depois do render; sem elas, a emenda "
+                      "fica no tempo previsto)")
     for f in faltas:
         print(f"Aviso: falta {f}")
 
@@ -331,7 +337,7 @@ def main():
             alvo = []
             if b:
                 alvo.append("/inserir · insercoes.json · " + "; ".join(b) + " (a borda cai a 1–2 quadros do corte: "
-                            "ponha as duas no mesmo quadro)")
+                            "use \"<frase do plano seguinte>:emenda\" para pôr as duas no mesmo quadro)")
             if e:
                 alvo.append(f"/decupar · cortes.json · ajustes \"T{e['trecho']}.ate\" / \"T{e['trecho'] + 1}.de\" "
                             f"(emenda em {fmt_tempo(e['t'])})")
@@ -464,9 +470,10 @@ def main():
         else:
             item("zona_segura", "Zona segura", "passa", f"todo texto dentro de {zona[0]}–{zona[1]} px")
         if avisos:
-            item("zona_imagens", "Imagens perto da borda", "atenção",
-                 f"{len(avisos)} vídeo(s)/imagem(ns) passam de {zona[0]}–{zona[1]} px (sem texto, só conferir)",
-                 ", ".join(f"{fmt_tempo(a['de'])} {a['id']} ({int(a['topo'])}–{int(a['pe'])})" for a in avisos[:6]))
+            item("zona_imagens", "Peças perto da borda", "atenção",
+                 f"{len(avisos)} peça(s) passam de {zona[0]}–{zona[1]} px (imagem sem texto ou com \"aceito\": só conferir)",
+                 ", ".join(f"{fmt_tempo(a['de'])} {a['id']} ({int(a['topo'])}–{int(a['pe'])})"
+                           + (f" aceito: {a['aceito']}" if a.get("aceito") else "") for a in avisos[:6]))
         pecas, hist = medir_distribuicao(itens, quadro)
         if len(pecas) >= 3:
             z, n = max(hist.items(), key=lambda kv: kv[1])

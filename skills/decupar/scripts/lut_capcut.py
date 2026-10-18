@@ -14,7 +14,8 @@ enquadramento (zoom leve serve). O script:
   3. aplica o LUT com o ffmpeg em trechos que ficaram fora do ajuste e mede a diferença de cor (ΔE00).
 Grava o .cube e, ao lado, <nome>-comparacao.jpg (bruto | bruto + LUT | exportação). Quem chama é a
 /minha-edicao, uma vez por pessoa; a saída vai para marca/cor/ e o cortes.json usa {"look": {"lut": ...}}.
-ΔE00 abaixo de 2: a diferença quase não se vê.
+Última linha: JSON com o ΔE00 e o resultado (até 2 "aceita"; de 2 a 3 "atenção", a pessoa olha a
+comparação; acima de 3 "refaz").
 """
 import json
 import shutil
@@ -382,12 +383,18 @@ def main():
     if outro:
         print(f"{outro.name} nos mesmos quadros: {fmt_num(float(np.mean(com_outro)), 2)} "
               f"({' · '.join(fmt_num(x, 2) for x in com_outro)})")
-    if d_com >= 2 or d_com >= d_sem:
-        print("ATENÇÃO: o LUT não chegou perto da exportação. A exportação pode ter efeito que não é de cor "
-              "(máscara, vinheta, filtro por cima de parte do quadro).")
+    # régua do contrato (3.3): até 2 aceita; de 2 a 3, a pessoa olha a comparação e decide; acima de 3, refaz
+    resultado = "refaz" if d_com > 3 or d_com >= d_sem else ("aceita" if d_com <= 2 else "atenção")
+    if resultado == "refaz":
+        print("ATENÇÃO: o LUT não chegou perto da exportação (ΔE00 acima de 3). Confira se os dois vídeos são o mesmo "
+              "trecho; a exportação pode ter efeito que não é de cor (máscara, vinheta, filtro em parte do quadro).")
+    elif resultado == "atenção":
+        print("ATENÇÃO: ΔE00 entre 2 e 3. Mostre a comparação à pessoa antes de gravar o LUT na marca.")
     print(f"LUT: {saida} · comparação: {saida.stem}-comparacao.jpg (bruto | com o LUT | exportação)")
     print(f"Pronto em {fmt_num(time.time() - t0)} s.")
-    print(json.dumps({"de00_com_lut": round(d_com, 3), "de00_sem_lut": round(d_sem, 3), "quadros": len(pares)}))
+    print(json.dumps({"de00_com_lut": round(d_com, 3), "de00_sem_lut": round(d_sem, 3), "quadros": len(pares),
+                      "resultado": resultado, "comparacao": str(saida.with_name(saida.stem + "-comparacao.jpg"))},
+                     ensure_ascii=False))
 
 
 if __name__ == "__main__":

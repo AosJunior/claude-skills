@@ -1,237 +1,261 @@
 # Contrato do kit de edição (v2)
 
-As skills `/decupar`, `/inserir`, `/sonorizar` e `/criticar` são instaladas uma a uma e não importam
-código umas das outras. Elas se falam por **arquivos**: a pasta do vídeo e os JSONs abaixo. Este
-documento é a fonte da verdade desses arquivos. Uma mudança de formato muda aqui primeiro.
+As skills `/decupar`, `/inserir`, `/sonorizar`, `/criticar` e `/minha-edicao` são instaladas uma a uma e não
+importam código umas das outras. Elas se falam por **arquivos**: a pasta do vídeo, a pasta `marca/` e os JSONs
+abaixo. Este documento é a fonte da verdade desses arquivos; o detalhe de cada JSON que só uma skill lê fica no
+`referencia.md` dela.
 
-Origem: o Reel da Ana "Ter loja virou coisa de pobre?" (17/10/2026) saiu de scripts feitos na hora,
-fora do kit. O v2 traz para o kit o que aqueles scripts sabiam fazer, sem nada da Ana dentro do código.
+## 0. Quem decide
+
+- Cada arquivo tem **um dono**: a skill que o grava (`palavras-corte.json` → `/decupar`, `geometria.json` →
+  `/inserir`, `critica/` → `/criticar`, `marca/estilo.md` e `marca/referencias/` → `/minha-edicao`). O JSON que
+  o Claude escreve é do script que o lê (`cortes.json` → `/decupar`, `insercoes.json` → `/inserir`,
+  `som.json` → `/sonorizar`).
+- Conflito entre skills: vale o que está aqui. Um campo novo ou uma mudança de formato entra **aqui primeiro**;
+  quem lê pede o campo ao dono, e o dono grava.
+- Âncoras, `achar_marca` e caminhos vivem em `scripts/contrato.py`, **o mesmo arquivo** nas skills `/decupar`,
+  `/inserir`, `/sonorizar` e `/criticar`. Mudou um, copie para as quatro e rode `uv run tests/test_contrato.py`
+  (confere que os quatro são iguais e dão o mesmo resultado pela porta de cada skill).
 
 ## 1. Pastas
 
 ```
-<pasta de edição>/                 qualquer nome; é onde mora a marca
+<pasta de edição>/                       qualquer nome; é onde mora a marca
   marca/
-    estilo.md                      receita de estilo (fontes, legenda, cor, som, composição)
-    fontes/  cor/<nome>.cube  sons/{trilhas,efeitos}/ + sons/creditos.md  referencias/  letterings/
-  videos/<AAAA-MM-DD-assunto>/
-    bruto.<ext>                    só leitura (pode ser symlink)
-    brutos/{imagens,videos}/ + brutos/fontes.md   mídia de terceiros com origem anotada
-    decupagem/   insercoes/   som/   critica/   entrega/
+    estilo.md                            receita de estilo (a /minha-edicao escreve; as outras leem)
+    fontes/   cor/<nome>.cube   letterings/<modelo>.html
+    sons/trilhas/  sons/efeitos/  sons/creditos.md
+    referencias/<nome>.<mp4|mov|jpg|png>  vídeos e prints de referência, direto na pasta
+    referencias/medidas/<nome>/  referencias/ficha.md  referencias/prova.json  referencias/prova/
+  videos/<AAAA-MM-DD-assunto>/           a pasta do vídeo
+    bruto.<ext>                          só leitura (pode ser atalho)
+    brutos/{imagens,videos}/  brutos/fontes.md   mídia de terceiros; fontes.md tem nome, origem e licença
+    decupagem/  insercoes/  som/  critica/  entrega/
 ```
 
-**Achar a marca** (`achar_marca(pasta)`, copiado no `comum.py` de cada skill): sobe a partir da
-pasta do vídeo até achar `marca/estilo.md` ou até a raiz do disco. O script imprime
-`Marca: <caminho>` ou `Marca: nenhuma`. Em todo JSON, um caminho que começa com `marca/` é resolvido
-contra essa pasta. Os outros caminhos relativos valem a partir da pasta do próprio JSON.
+- **`achar_marca(pasta)`** sobe a partir da pasta dada até achar `marca/estilo.md`, sem seguir atalhos
+  (symlinks), e devolve a pasta `marca/` (ou nada). O script que a procura imprime `Marca: <caminho>` ou
+  `Marca: nenhuma`.
+  Exceção: o `prova.py` da `/minha-edicao` roda antes de existir `estilo.md` e procura o arquivo pedido subindo.
+- **Caminho num JSON**: começa com `marca/` → contra a pasta que contém `marca/`; sem marca achada, é erro.
+  Outro relativo → contra a pasta do próprio JSON.
+- `marca/referencias/`: só vídeo e imagem de referência ficam soltos na pasta (a `/criticar` usa todos);
+  medidas, ficha e prova vão nas subpastas e arquivos acima.
 
-## 2. Âncoras de tempo (iguais em todos os JSONs)
+## 2. Tempos e âncoras na fala
 
-Um tempo pode ser:
+Todo tempo de `cortes.json`, `insercoes.json` e `som.json` pode ser:
 
-| Forma | Exemplo | Significa |
-|---|---|---|
-| segundos | `42.9` | tempo do vídeo cortado |
-| relógio | `"00:42,90"` | idem |
-| frase | `"F15"` | início da frase F15 (em `ate`: fim dela) |
-| frase:borda | `"F15:inicio"`, `"F15:fim"` | início ou fim da frase |
-| frase:palavra | `"F15:repente"`, `"F15:repente#2"` | início da 1ª (ou 2ª) ocorrência da palavra na frase; a comparação ignora acento, caixa e pontuação |
-| frase:índice | `"F15:3"` | início da 3ª palavra da frase (contando de 1) |
-| deslocamento | `"F1:fim+0.25"`, `"F20:mais-0.1"` | qualquer âncora mais ou menos segundos |
+| Forma | Exemplo | Em `de` | Em `ate` |
+|---|---|---|---|
+| segundos | `42.9`, `"42,9"` | o tempo | o tempo |
+| relógio | `"00:42,90"`, `"1:02:03.5"` | o tempo | o tempo |
+| frase | `"F15"` | início da frase | fim da frase |
+| borda da frase | `"F15:inicio"`, `"F15:fim"` | essa borda | essa borda |
+| palavra pela posição | `"F15:3"` | início da 3ª palavra | fim dela |
+| palavra pelo texto | `"F15:repente"`, `"F15:repente#2"` | início da 1ª (2ª) "repente" | fim dela |
+| emenda | `"F15:emenda"` | o corte da imagem logo antes da F15 | idem |
+| deslocamento | `"F1:fim+0.25"`, `"F20:mais-0,1"` | a âncora ± segundos | idem |
 
-- `F<n>` é o id da frase na `decupagem/transcricao.txt` do **bruto**. Ele não muda quando o corte
-  muda. Por isso o JSON escrito com âncoras sobrevive a um novo corte.
-- Em `ate` (fim de inserção ou camada), `"F15:repente"` significa o **fim** da palavra.
-- Quem resolve é o `palavras-corte.json` (seção 3). Se a âncora cair numa palavra que o corte tirou,
-  o script para e diz qual palavra sumiu. Não pode cair no lugar mais perto em silêncio.
+- `F<n>` é o id da frase na `decupagem/transcricao.txt` do **bruto**: não muda com um novo corte. No
+  `cortes.json` a âncora vale no tempo do bruto; nos outros JSONs, no tempo do vídeo cortado, resolvida pelo
+  `decupagem/palavras-corte.json`.
+- A posição conta só as palavras com texto, de 1. Número sozinho é posição: a palavra falada "10" se escreve
+  `"F81:10#1"`. `inicio`, `fim` e `emenda` são bordas; a palavra falada "fim" se escreve `"F3:fim#1"`.
+- A palavra compara sem acento, caixa e pontuação ("Vocês," = "voces"), e é a palavra **da transcrição**:
+  `correcoes` da `/inserir` muda só o texto da legenda, não a âncora.
+- Frase que o corte partiu vale inteira: `"F3"` começa na 1ª palavra que ficou e termina na última.
+- Âncora numa palavra ou frase que o corte tirou é **erro**, com a palavra que sumiu. Nunca cai no lugar mais
+  perto em silêncio.
+- `"F15:emenda"` só existe no vídeo cortado, e só se a F15 começa até 1 s depois de um corte. É o jeito de uma
+  camada acabar junto com o plano: `"ate": "<1ª frase do plano seguinte>:emenda"`.
+- **Encostar**: no vídeo cortado, todo tempo que cai a menos de 3 quadros de uma emenda vale a emenda (sem
+  quadro solto). Vale na `/inserir` e na `/sonorizar` (é o `tempo` do `contrato.py`); a `/inserir` diz quais
+  encostou.
+- No `cortes.json`, âncora de palavra (posição, texto, `inicio`, `fim`) sem deslocamento também limita o
+  trecho pela posição da palavra (o Whisper sobrepõe palavras coladas); com deslocamento, vale só o tempo.
 
 ## 3. `/decupar` → `decupagem/`
 
-### 3.1 `cortes.json` (o Claude escreve)
+### 3.1 `cortes.json` (o Claude escreve; detalhe em `decupar/referencia.md`)
 
 ```json
 {
-  "pausa_max": 0.22,
-  "velocidade": 1.2,
+  "pausa_max": 0.22, "bordas": "som", "velocidade": 1.2,
   "zoom": {"ancora": [0.49, 0.36], "niveis": [1.0, 1.12, 1.2, 1.3], "alternar_na_pausa": true},
   "cor": {"corrigir": false, "look": {"lut": "marca/cor/look.cube"}},
   "trechos": [
-    {"de": "F1", "ate": "F1", "zoom": 1.0, "nota": "pergunta do gancho"},
+    {"de": "F1", "ate": "F1:fim", "zoom": 1.0, "nota": "pergunta do gancho"},
     {"de": "F3:2", "ate": "F3:fim", "zoom": 1.25, "nota": "tira o 'até' gaguejado"},
-    {"de": 70.47, "ate": 73.68, "exato": true, "zoom": 1.12}
+    {"de": 185.095, "ate": 188.47, "exato": true, "zoom": 1.12}
   ],
   "ajustes": {"T5.de": 0.04, "T5.ate": -0.03}
 }
 ```
 
-- Os tempos de `trechos` são do **bruto**. `F3:2` é a palavra 2 da frase 3 (no `de` vale o início
-  dela, no `ate` o fim). Para o `/decupar`, as âncoras da seção 2 valem com o tempo do bruto.
-- `velocidade` (padrão 1.0): acelera vídeo e voz juntos (`setpts` + `atempo`). Tudo o que sai em
-  tempo final já vem dividido por ela.
-- `zoom.ancora`: o ponto do quadro de **saída** que fica parado no zoom, em fração (x, y). Fica perto
-  dos olhos. O recorte do zoom sai da resolução **nativa** do bruto, antes de reduzir.
-- `trechos[].zoom`: o nível daquele trecho. Com `alternar_na_pausa`, cada emenda **dentro** de um
-  trecho (pausa interna tirada) troca para o nível vizinho em `niveis`, para a emenda não pular.
-- `cor.look.lut`: um `.cube`, aplicado depois do recorte e da escala com `lut3d=interp=tetrahedral`.
-  Continua valendo o look por números de hoje (`contraste`, `calor`…). Os dois juntos não: com
-  `lut`, o resto do look é ignorado e o script avisa.
-- `ajustes`: deslocamento fino (s) da borda de um trecho, escrito pela `/criticar`. `T5` é o 5º
-  trecho da lista (contando de 1).
+| Campo | Padrão | Faixa | Regra |
+|---|---|---|---|
+| `bordas` | `"palavra"` | `"som"`, `"palavra"` | `som`: a borda de cada fala sai do volume medido; `palavra`: tempo do Whisper + folga fixa |
+| `velocidade` | 1.0 | 0,5 a 2 | vídeo e voz juntos; todo tempo de saída já vem dividido por ela |
+| `trechos[].zoom` | 1.0 | 1 a 3 | nível do trecho |
+| `zoom.alternar_na_pausa` | false | | emenda **dentro** do trecho troca para o nível vizinho: o de baixo; no mais baixo, o de cima. Pedaço com menos de 0,4 s não troca |
+| `zoom.ancora` | [0.5, 0.4] | 0 a 1 | ponto do quadro de saída que fica parado no zoom; o recorte sai da resolução nativa |
+| `ajustes` | | -1 a 1 s | desloca a borda do trecho `T<n>` (n conta de 1 na lista). Quem acha o valor é a `/criticar` |
+| `cor.look.lut` | | | `.cube` aplicado depois do recorte e da escala; com ele, o look por números é ignorado (o script avisa) |
 
-### 3.2 Saídas novas
-
-`decupagem/palavras-corte.json`, gravado em todo `cortar.py` (também no `--resumo`):
+### 3.2 `palavras-corte.json` (a `/decupar` grava em todo `cortar.py`, também no `--resumo`)
 
 ```json
 {
-  "versao": 1, "video": "final.mp4", "duracao": 134.4, "fps": 30, "velocidade": 1.2,
-  "frases": [{"id": "F1", "a": 0.0, "b": 2.13, "texto": "Vocês acham que..."}],
-  "palavras": [{"w": "Vocês", "a": 0.0, "b": 0.31, "frase": "F1", "n": 1, "i": 37, "trecho": 1}]
+  "versao": 2, "video": "final.mp4", "duracao": 134.3, "fps": 30, "velocidade": 1.2, "medido": "pedacos",
+  "trechos": [{"n": 1, "a": 0.0, "b": 2.1}, {"n": 2, "a": 2.1, "b": 3.267}],
+  "emendas": [2.1, 3.267],
+  "frases": [{"id": "F1", "a": 0.12, "b": 2.05, "texto": "Vocês acham que...", "trecho": 1}],
+  "palavras": [{"w": "Vocês", "a": 0.12, "b": 0.41, "frase": "F1", "n": 1, "i": 37, "trecho": 1}]
 }
 ```
 
-- `a` e `b` estão no tempo do vídeo cortado, já com a velocidade. `n` é a posição da palavra na
-  frase (contando de 1), `i` é o índice em `.dados/palavras.json` e `trecho` conta de 1.
-- `frases` só lista as frases que ficaram no corte, com o pedaço que ficou.
-- Uma frase cortada no meio aparece com as palavras que restaram e o `a`/`b` delas.
+- Tudo no tempo do vídeo cortado, já com a velocidade. `n` é a posição da palavra na frase (seção 2), `i` o
+  índice em `.dados/palavras.json`, `trecho` o `T<n>` do `cortes.json`.
+- `frases` tem uma linha por pedaço de frase que ficou (frase partida em dois trechos aparece duas vezes).
+- `trechos`: as bordas de cada trecho; `emendas`: toda troca de pedaço no vídeo (entre trechos e nas pausas
+  tiradas dentro deles).
+- `medido`: depois do render, `"pedacos"` (quadros contados em cada pedaço e na saída) ou `"saida"` (render
+  único: quadros da saída), e **todo** tempo do arquivo segue as bordas medidas. No `--resumo`, `false` (bordas
+  previstas), a não ser que o último render seja do mesmo corte. `video` diz em qual arquivo foi medido.
 
 O `legenda.srt` continua igual, para quem usa outro editor.
 
-### 3.3 LUT a partir do CapCut
+### 3.3 LUT do editor da pessoa (quem chama é a `/minha-edicao`)
 
-`decupar/scripts/lut_capcut.py "<bruto>" "<exportação do editor>" "<saída.cube>"` casa os dois
-vídeos (áudio para achar o tempo, imagem para o quadro exato), ajusta um LUT 33³ e imprime o ΔE00
-médio num trecho que ficou fora do ajuste. Quem chama é a `/minha-edicao`, uma vez por pessoa, e a
-saída vai para `marca/cor/`.
+```
+uv run "<decupar>/scripts/lut_capcut.py" "<bruto>" "<exportação do editor>" "marca/cor/<nome>.cube" [--comparar "<outro.cube>"]
+```
+
+Grava o `.cube` e `<nome>-comparacao.jpg` (bruto | com o LUT | exportação). A última linha é JSON:
+`{"de00_com_lut", "de00_sem_lut", "quadros", "resultado", "comparacao"}`. `resultado`: `"aceita"` (ΔE00 até 2),
+`"atenção"` (de 2 a 3: a pessoa olha a comparação e decide) ou `"refaz"` (acima de 3, ou pior que sem LUT).
 
 ## 4. `/inserir` → `insercoes/`
 
-### 4.1 `insercoes.json` (o Claude escreve)
+### 4.1 `insercoes.json` (o Claude escreve; detalhe em `inserir/referencia.md`)
+
+O que as outras skills leem dele:
+
+- `camadas[]`: `id` (único), `tipo` (`video`, `imagem`, `faixa`, `html`), `lugar` (`topo`, `atras`,
+  `frente`), `de`, `ate` e, no vídeo, `src` (segundo do arquivo de origem) e `recorte` (caixa fixa, ou lista
+  de passos `{"t", "caixa", "src"?, "dur"?}` com `t` relativo ao início da camada). A `/sonorizar` prende
+  efeito a `id`, à borda (`de`, `ate`) e ao passo do `recorte`.
+- `insercoes[]` (cartões): `tipo`, `de`, `ate` e o texto. A `/sonorizar` acha o cartão pelo texto.
+- `estilo.zona_segura` ([260, 1600]) e `estilo.reguas`.
+- `aceito: "<motivo>"` em camada, inserção ou faixa de `legenda`: a decisão escrita de deixar a peça fora da
+  zona segura ou da régua. A `/inserir` não avisa e a `/criticar` não reprova (fica em atenção).
+- Arquivo de `brutos/` só entra com uma linha em `brutos/fontes.md` com o nome dele, a origem e a licença.
+
+### 4.2 Modelo de lettering (camada `"tipo": "html"`)
+
+`marca/letterings/<nome>.html`: página de 1080×1920 com fundo transparente. Todo `{{campo}}` do modelo precisa
+estar em `campos` (campo opcional vai com `""`; o modelo esconde o vazio). Fontes e imagens valem relativas à
+pasta do modelo (`../fontes/`). Se o modelo se arruma por script, ele marca `document.body.dataset.pronto` no
+fim, e a `/inserir` espera por `body[data-pronto]` antes de fotografar; sem isso, espera as fontes.
+
+### 4.3 Saídas
+
+- `<vídeo>-insercoes.mp4` (`final-insercoes.mp4` a partir do `final.mp4`), `legenda-curta.srt` (a mesma lista
+  da legenda gravada), `cartoes.png`, `quadros/folha.jpg`.
+- `.dados/mascaras/m-<q0>-<q1>-<motor>.mkv`: máscara da pessoa (ffv1 cinza, faixa completa) só nos trechos com
+  camada `atras`.
+- `.dados/geometria.json`: tudo o que foi desenhado, no tempo final, com caixa `[x, y, w, h]` no quadro 1080×1920:
 
 ```json
-{
-  "estilo": {
-    "fonte": "marca/fontes/NeueMontreal-Bold.otf",
-    "fonte_destaque": "marca/fontes/AppleGaramond-Italic.ttf",
-    "tamanho": 116, "palavras_max": 1, "letras_max": 30,
-    "minusculas": true, "juntar_numeros": true, "nomes": ["Gokoco", "TikTok"],
-    "legenda_y": 1290, "margem": 70, "sombra": 0.45,
-    "escala_destaque": 1.75, "destaque_y": 760,
-    "zona_segura": [260, 1600]
-  },
-  "destaques": ["pobre", "milhões"],
-  "correcoes": {"Gococo": "Gokoco"},
-  "legenda": [
-    {"de": 0, "ate": "F1:fim+0.25", "y": "some"},
-    {"de": "F1:fim+0.25", "ate": "F7:aluga-se", "y": 1190}
-  ],
-  "divididas": [
-    {"id": "gancho", "de": 0, "ate": "F7:aluga-se", "corte": 960,
-     "pessoa": [{"de": 0, "recorte_y": 150, "escala": 0.72}, {"de": "F3", "recorte_y": 450}],
-     "laterais": "borrado"}
-  ],
-  "camadas": [
-    {"id": "placa", "tipo": "video", "arquivo": "../brutos/videos/aluga-se.mp4", "src": 22.0,
-     "de": 0, "ate": 2.63, "lugar": "topo", "audio": null,
-     "recorte": [{"t": 0, "caixa": [21, 347, 699, 932]}, {"t": 1.0, "caixa": [105, 347, 495, 660]}]},
-    {"id": "headline", "tipo": "faixa", "texto": "Ter loja virou coisa de pobre?",
-     "de": 0, "ate": "F1:fim+0.25", "y": 908, "largura": 898, "altura": 104, "raio": 17,
-     "fundo": "#FCFCFC", "tinta": "#111111", "fonte": "marca/fontes/NeueMontreal-Bold.otf", "tamanho": 58},
-    {"id": "gokoco-1", "tipo": "video", "arquivo": "../brutos/videos/gokoco-luma.mp4", "src": 114,
-     "de": "F15:repente", "ate": "F17:fim", "x": 30, "y": 190, "w": 390, "rot": -6, "raio": 26,
-     "sombra": 0.35, "lugar": "atras", "entra": {"efeito": "pop", "dur": 0.18}, "sai": 0.12},
-    {"id": "L2", "tipo": "html", "modelo": "marca/letterings/numero.html",
-     "campos": {"numero": "R$ 18", "unidade": "milhões", "texto": "por mês"},
-     "de": "F29:faturou", "ate": "F29:fim", "lugar": "frente",
-     "entra": {"efeito": "pop", "dur": 0.14}, "legenda": "some"}
-  ],
-  "insercoes": []
-}
-```
-
-- Os tempos estão no tempo do vídeo cortado e aceitam as âncoras da seção 2.
-- **`legenda`** (lista de faixas) muda a altura da legenda ou a esconde num intervalo. É o único jeito
-  de mexer na legenda. Nada de inserção vazia. Uma camada ou inserção com `"legenda"` cria a faixa dela.
-- **`destaque_y`**: a palavra de destaque sobe para esta linha de base (px), maior
-  (`escala_destaque`), na `fonte_destaque`. Sem `destaque_y`, ela fica na linha da legenda.
-- **`palavras_max: 1` com `juntar_numeros`**: "100 mil", "R$ 18 milhões" e "10, 20" saem juntos.
-- **`minusculas`**: tudo em minúscula, menos o que está em `nomes` e a primeira palavra de frase com nome próprio.
-- **`divididas`**: tela dividida em `corte` (px). A pessoa vai para a metade de baixo; cada item de
-  `pessoa` vale a partir do seu `de` (`recorte_y` é a linha do quadro de onde sai a janela; `escala`
-  menor que 1 deixa laterais borradas). A metade de cima recebe as camadas `lugar: "topo"`.
-- **`camadas`** (`tipo`: `video`, `imagem`, `faixa`, `html`):
-  - `lugar`: `topo` é a metade de cima da dividida, em 720 px de largura, com laterais do mesmo
-    vídeo ampliado e borrado; `atras` fica atrás da pessoa e precisa de máscara; `frente` fica por
-    cima de tudo, menos da legenda.
-  - `recorte`: uma caixa fixa `[x, y, w, h]`, ou uma lista com `t` (relativo ao início da camada)
-    para o "aberto e depois o zoom seco".
-  - `src` é o segundo do arquivo de origem; `audio` é o ganho em dB, ou `null` para mudo.
-  - `entra` e `sai`: `{"efeito": "pop", "dur": 0.18}` (escala 0,82 para 1 com alfa) ou só o número
-    (alfa).
-  - `html` usa um modelo com `{{campo}}` e vira PNG transparente pelo navegador.
-- `insercoes` (os cartões de hoje) continua valendo, com o mesmo formato. As âncoras passam a ser aceitas.
-
-### 4.2 Saídas
-
-- `<vídeo>-insercoes.mp4`, `legenda-curta.srt` (**o mesmo tempo da legenda gravada**: os dois
-  saem da mesma lista) e `quadros/folha.jpg`.
-- `insercoes/.dados/geometria.json`: tudo o que foi desenhado, no tempo final, para a `/criticar` medir.
-
-```json
-{"duracao": 134.4, "quadro": [1080, 1920], "itens": [
+{"duracao": 134.4, "quadro": [1080, 1920], "zona_segura": [260, 1600], "itens": [
   {"id": "leg-0042", "tipo": "legenda", "texto": "pobre", "destaque": true, "de": 1.9, "ate": 2.3, "caixa": [312, 640, 455, 150]},
-  {"id": "gokoco-1", "tipo": "video", "lugar": "atras", "de": 23.8, "ate": 31.48, "caixa": [30, 190, 390, 693]},
-  {"id": "gancho", "tipo": "dividida", "de": 0, "ate": 13.17, "corte": 960}
+  {"id": "insercao-3", "tipo": "numero", "lugar": "cartao", "de": 42.9, "ate": 45.0, "caixa": [90, 300, 900, 600]},
+  {"id": "headline", "tipo": "faixa", "lugar": "frente", "texto": "Ter loja virou coisa de pobre?", "de": 0, "ate": 2.3, "caixa": [91, 908, 898, 104]},
+  {"id": "L2", "tipo": "html", "lugar": "frente", "texto": "R$ 18 milhões", "de": 45.9, "ate": 48.5, "caixa": [183, 335, 810, 413]},
+  {"id": "mosaico1-1", "tipo": "video", "lugar": "atras", "de": 23.8, "ate": 31.47, "caixa": [30, 190, 390, 693], "aceito": "..."},
+  {"id": "gancho", "tipo": "dividida", "de": 0, "ate": 13.14, "corte": 960, "laterais": "borrado",
+   "pessoa": [{"de": 0, "recorte_y": 150, "escala": 0.72}, {"de": 2.11, "recorte_y": 450, "escala": 1.0}]}
 ]}
 ```
 
-- Máscara: `inserir/scripts/mascara.py --motor auto|vision|rvm`. Gera só os trechos com camada
-  `atras`, em `insercoes/.dados/mascaras/`, como vídeo cinza sem perda e faixa completa (ffv1).
-- Composição: `inserir/scripts/compor.py`, chamado pelo `inserir.py`. Quando não há dividida nem
-  camada, o caminho de hoje continua igual (rápido).
+`aceito` aparece em qualquer item que o tenha no `insercoes.json` (na legenda, pela faixa). `recorte_y` é medido
+no quadro já na `escala`.
 
 ## 5. `/sonorizar` → `som/`
 
+### 5.1 `som.json` (o Claude escreve; detalhe em `sonorizar/referencia.md`)
+
 ```json
 {
-  "video": "../insercoes/video-insercoes.mp4",
-  "legenda": "../decupagem/legenda.srt",
+  "video": "../insercoes/final-insercoes.mp4",
   "palavras": "../decupagem/palavras-corte.json",
   "insercoes": "../insercoes/insercoes.json",
-  "sons": {"cordas": {"arquivo": "marca/sons/trilhas/strings-in-solitude-3.flac", "licenca": "..."}},
-  "trilha": [{"som": "cordas", "de": 0, "ate": "F20:Isso"}, {"som": "gentlemen", "de": "F20:Isso", "cruzar": 0.4}],
+  "legenda": "../decupagem/legenda.srt",
+  "sons": {"cordas": {"arquivo": "marca/sons/trilhas/strings-in-solitude-3.flac"}},
+  "trilha": [
+    {"som": "cordas", "de": 0, "abaixo_da_voz": 16, "fade_in": 0.5},
+    {"som": "jazz", "de": "F36:inicio-0.5", "cruzar": 1.2, "fade_out": 2}
+  ],
   "efeitos": [
-    {"camada": "L2", "som": "kaching", "volume": -4, "motivo": "lettering R$ 18 milhões entra"},
-    {"em": "F20:Isso", "som": "virada", "motivo": "virada de bloco"}
+    {"camada": "placa-5-zoom", "em": "recorte", "som": "zoom", "volume": -3, "motivo": "zoom seco na placa"},
+    {"em": "F36:inicio-0.2", "som": "virada", "volume": -4, "motivo": "virada de bloco"}
   ],
   "entrega": {"pasta": "../entrega", "nome": "ter-loja-virou-coisa-de-pobre"}
 }
 ```
 
-- `trilha` pode ser um objeto (como hoje) ou uma lista de faixas com troca (`cruzar` = segundos de
-  crossfade).
-- Um efeito se prende a `camada` (id em `insercoes.json`), `insercao` (como hoje), `legenda` (como
-  hoje), `em` (âncora da seção 2) ou `t`.
-- `entrega` copia o vídeo final, a `legenda-curta.srt` e o `creditos.md` para a pasta de entrega.
+- `video` é o vídeo **antes** da trilha (a saída da `/inserir`, ou o final da `/decupar`); a `/criticar` mede
+  as emendas nele. `saida` (padrão `video-com-som.mp4`, na pasta `som/`) é o vídeo com som.
+- `trilha`: um objeto (uma faixa no vídeo todo) ou uma lista em ordem de tempo. A troca acontece no `de` da
+  faixa seguinte. Campos por faixa: `som`, `de`, `inicio` (ponto da música de onde ela parte; `src` é das
+  camadas e aqui é erro), `abaixo_da_voz` (16), `fade_in` (1), `fade_out` (2), `cruzar` (0,5 s de crossfade,
+  centrado no `de`). `ate` serve só para acabar antes e deixar silêncio.
+- Efeito preso a `camada`: `em` é `"inicio"` (padrão), `"fim"`, `"recorte"` (2º passo do recorte) ou
+  `"recorte#k"`. Sem camada: `insercao` (texto do cartão), `legenda` (trecho da `legenda.srt`), `em` (âncora)
+  ou `t`.
+- `entrega` copia o vídeo final, a legenda curta, o `creditos.md` e o `som.json`. A legenda curta é a
+  `legenda-curta.srt` ao lado do `insercoes.json`; `entrega.legenda` aponta outra.
+
+### 5.2 `marca/sons/creditos.md`
+
+Tabela Markdown com a coluna `Arquivo` (obrigatória; vale o nome do arquivo) e, se houver, `Título`, `Autor`,
+`Fonte`, `ID` e `Licença`; outras colunas são ignoradas. Pode haver mais de uma tabela. O que o `som.json` não
+diz de um som sai da linha dele; o `ID` entra na licença. Som sem licença em nenhum dos dois é erro.
+
+```
+| Arquivo | Título | Autor | Fonte | ID | Licença |
+|---|---|---|---|---|---|
+| `trilhas/gentlemen.flac` | Gentlemen | Vendla | Epidemic Sound | 0722c45e-… | assinatura Epidemic Sound |
+```
+
+### 5.3 Trilha dos Reels da pessoa (quem chama é a `/minha-edicao`)
+
+```
+uv run --python 3.12 "<sonorizar>/scripts/identificar.py" "<reel ou link>" ...
+```
+
+Shazam em pedaços de 10 s a cada 8 s; imprime, por vídeo, cada música com o trecho em que toca e o selo.
 
 ## 6. `/criticar` → `critica/`
 
-Ela lê o vídeo final, o `palavras-corte.json`, o `geometria.json`, o `som.json`, o `marca/estilo.md`
-e `marca/referencias/`. Grava:
+Lê o vídeo final (o mais novo em `entrega/`, senão a `saida` do `som.json`, o da `/inserir` ou o da
+`/decupar`), o `palavras-corte.json` (texto esperado e as emendas pelas bordas de `trechos`), o
+`geometria.json` (zona segura dele, `aceito`, `pessoa` das divididas, `texto` de faixa e html, `destaque`), o
+`video` do `som.json`, a `legenda-curta.srt`, `marca/estilo.md` e `marca/referencias/`. Nada fora de `critica/`
+muda. Grava:
 
-- `critica/relatorio.md`: cada item com **passa** ou **reprova**, medida e onde (tempo).
-- `critica/folha.jpg`: o resultado ao lado da referência no mesmo bloco.
+- `relatorio.md` e `medidas.json`: cada item com **passa**, **reprova**, **atenção** (ouvir ou olhar; não
+  bloqueia) ou **pulado** (faltou entrada), a medida, onde e a correção (skill · arquivo · campo);
+- `folha-NN.jpg` (1 quadro por segundo), `folha-cortes-NN.jpg` (2 quadros antes e 2 depois de cada corte),
+  `folha-referencia.jpg`, `letras/` (palavras estilizadas ampliadas) e `fala-final.json` (transcrição do final);
+- `editor-chefe.md`: o veredito do subagente, pela régua `criticar/critica.md`.
 
-O que é medido pelo script:
-- emendas (salto de volume, pausa curta ou longa demais, palavra cortada);
-- gagueira e repetição (transcreve o final e compara com o texto esperado);
-- quadros soltos (corte com menos de 3 quadros);
-- zona segura (caixas fora de `zona_segura`);
-- distribuição de posições (as inserções não podem estar todas na mesma região);
-- tempo sem evento visual acima de 8 s;
-- legenda gravada contra `legenda-curta.srt`;
-- volume (-14 LUFS ±1, pico ≤ -1 dBTP).
+As correções voltam para o arquivo do dono (seção 0): quem aplica é o Claude, não o script.
 
-O olho crítico fica a cargo de um subagente "editor-chefe" (régua em `criticar/critica.md`). Ele
-compara a folha com a referência e julga o gancho, a trilha e a legibilidade. Por exemplo, o "h" do
-Garamond itálico lido como "b".
+## 7. `/minha-edicao` → `marca/` e o formato
+
+Grava `marca/estilo.md`, copia para `marca/` o que ele cita (fontes, LUT, sons, letterings, referências) e
+escreve a receita de formato em `<pasta de edição>/.claude/skills/<nome>/SKILL.md`. Usa o `lut_capcut.py`
+(3.3) e o `identificar.py` (5.3) pelo caminho da skill irmã. Exemplos de estilo moram em
+`minha-edicao/exemplos/<nome>/estilo.md` (sem frontmatter); exemplos de formato, em `.../<nome>/SKILL.md`.

@@ -210,8 +210,8 @@ acerta em `ajustes` (`"T5.de": 0.05` começa o 5º trecho 50 ms depois; `"T5.ate
 depois), e o `--final` refaz só aquele pedaço.
 
 Com a `/criticar` instalada (ela aparece na sua lista de skills), rode-a no `final.mp4` antes de
-entregar: ela mede emendas, gagueira, quadros soltos e volume, e grava os `ajustes` no `cortes.json`.
-Depois rode o `--final` de novo.
+entregar: ela mede emendas, gagueira, quadros soltos e volume e diz quais `ajustes` pôr no
+`cortes.json`. Aplique e rode o `--final` de novo.
 
 ## 5. Corrigir
 

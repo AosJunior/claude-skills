@@ -4,8 +4,11 @@ import re
 import shutil
 import subprocess
 import sys
-import unicodedata
 from pathlib import Path
+
+# achar a marca, caminhos marca/ e âncoras na fala: contrato.py, igual nas 4 skills do kit
+from contrato import Ancoras, ErroContrato, achar_marca, caminho, segundos, texto_marca  # noqa: F401
+from contrato import chave as token  # noqa: F401
 
 VIDEO = {".mp4", ".mov", ".m4v", ".mkv", ".webm"}
 IMAGEM = {".jpg", ".jpeg", ".png", ".webp"}
@@ -54,35 +57,6 @@ def fmt_num(x, casas=1):
     return f"{x:.{casas}f}".replace(".", ",")
 
 
-def segundos(v):
-    """83.4, "83.4", "01:23,40" ou "1:23.4" -> segundos."""
-    if isinstance(v, (int, float)):
-        return float(v)
-    t = str(v).strip().replace(",", ".")
-    if ":" in t:
-        m, s = t.rsplit(":", 1)
-        h = 0
-        if ":" in m:
-            h, m = m.split(":")
-        return int(h) * 3600 + int(m) * 60 + float(s)
-    return float(t)
-
-
-def token(w):
-    """Palavra sem acento, caixa nem pontuação (a comparação de texto da seção 2 do contrato)."""
-    s = unicodedata.normalize("NFKD", str(w).lower()).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]", "", s)
-
-
-def achar_marca(pasta):
-    """Sobe a partir da pasta do vídeo até achar marca/estilo.md (contrato, seção 1)."""
-    p = Path(pasta).resolve()
-    for d in [p, *p.parents]:
-        if (d / "marca" / "estilo.md").is_file():
-            return d / "marca"
-    return None
-
-
 def sondar(video):
     """Duração, tamanho, quadros por segundo e se tem som."""
     r = rodar(["ffprobe", "-v", "error", "-show_streams", "-show_format", "-of", "json", video])
@@ -127,10 +101,10 @@ def ler_srt(p):
     return out
 
 
-def relativo(base, caminho, marca=None):
-    """Caminho de um JSON: `marca/...` vale contra a pasta da marca; o resto, contra a pasta do JSON."""
-    c = str(caminho)
-    if marca and c.replace("\\", "/").startswith("marca/"):
-        return Path(marca).parent / c
-    p = Path(c).expanduser()
-    return p if p.is_absolute() else (Path(base) / p)
+def relativo(base, c, marca=None):
+    """Caminho de um JSON (contrato, seção 1): `marca/...` vale contra a pasta de edição; o resto, contra a pasta
+    do JSON. Sem marca, um `marca/...` vira um caminho que não existe (o item fica de fora)."""
+    try:
+        return caminho(c, base, marca)
+    except ErroContrato:
+        return Path(base) / str(c)

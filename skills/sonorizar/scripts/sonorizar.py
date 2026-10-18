@@ -26,8 +26,9 @@ import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import (SR, Ancoras, achar_marca, checar_ffmpeg, ff, fmt_num, fmt_tempo, ler_creditos,  # noqa: E402
-                   ler_json, medir, rodar, sair, segundos, sondar, utf8)
+from comum import (SR, Ancoras, ErroContrato, achar_marca, checar_ffmpeg, ff, fmt_num, fmt_tempo,  # noqa: E402
+                   ler_creditos, ler_json, medir, rodar, sair, segundos, sondar, texto_marca, utf8)
+from comum import caminho as contrato_caminho  # noqa: E402
 
 VOZ_LUFS = -16.0          # a voz é levada a este nível antes da mistura (referência da trilha e dos efeitos)
 ALVO_LUFS = -14.0         # mistura final (Reels, TikTok, YouTube)
@@ -48,16 +49,16 @@ def carregar(som_json, trilha_outra=None):
     cfg = ler_json(p)
     base = p.parent
     marca = achar_marca(base)
-    print(f"Marca: {marca if marca else 'nenhuma'}")
+    print(texto_marca(marca))
+    erros = []
 
     def caminho(x):
-        x = str(x)
-        if marca and (x.startswith("marca/") or x.startswith("marca\\")):
-            return (marca / x).resolve()
-        q = Path(x).expanduser()
-        return q if q.is_absolute() else (base / q).resolve()
+        try:
+            return contrato_caminho(x, base, marca)
+        except ErroContrato as e:
+            erros.append(str(e))
+            return base / str(x)
 
-    erros = []
     video = caminho(cfg.get("video", ""))
     if not video.is_file():
         sair(f"Corrija o som.json:\n- vídeo não encontrado: {video}")
@@ -67,7 +68,7 @@ def carregar(som_json, trilha_outra=None):
     dur = info["duracao"]
 
     # âncoras na fala: palavras-corte.json da /decupar (explícito ou no lugar de sempre)
-    pj = caminho(cfg["palavras"]) if cfg.get("palavras") else (base / "../decupagem/palavras-corte.json").resolve()
+    pj = caminho(cfg["palavras"]) if cfg.get("palavras") else caminho("../decupagem/palavras-corte.json")
     if cfg.get("palavras") and not pj.is_file():
         erros.append(f"palavras-corte.json não encontrado: {pj}")
     anc = Ancoras(pj if pj.is_file() else None)
@@ -143,7 +144,7 @@ def carregar(som_json, trilha_outra=None):
             curta = caminho(ent["legenda"])
         else:
             lugares = [ij.parent / "legenda-curta.srt"] if ij else []
-            lugares += [video.parent / "legenda-curta.srt", (base / "../insercoes/legenda-curta.srt").resolve()]
+            lugares += [video.parent / "legenda-curta.srt", caminho("../insercoes/legenda-curta.srt")]
             curta = next((x for x in lugares if x.is_file()), None)
         entrega = {"pasta": pasta, "nome": nome, "legenda": curta if curta and curta.is_file() else None}
 
@@ -155,8 +156,8 @@ def carregar(som_json, trilha_outra=None):
 
 
 def creditos_marca(marca):
-    """marca/sons/creditos.md da pasta de edição -> {nome do arquivo: {titulo, autor, fonte, licenca}}."""
-    return ler_creditos(marca / "marca" / "sons" / "creditos.md") if marca else {}
+    """marca/sons/creditos.md -> {nome do arquivo: {titulo, autor, fonte, licenca}} (formato no referencia.md)."""
+    return ler_creditos(marca / "sons" / "creditos.md") if marca else {}
 
 
 def faixas_da_trilha(tr, sons, dur, T, erros):
@@ -169,6 +170,10 @@ def faixas_da_trilha(tr, sons, dur, T, erros):
         onde = f"trilha, faixa {i}"
         if f.get("som") not in sons:
             erros.append(f"{onde}: o som '{f.get('som')}' não está em \"sons\"")
+            return []
+        if "src" in f:
+            erros.append(f"{onde}: o ponto da música de onde a faixa parte é \"inicio\" (\"src\" é das camadas do "
+                         "insercoes.json)")
             return []
         dv = f.get("de", 0 if i == 1 else None)
         de = T(dv, "inicio", onde) if dv is not None else None
@@ -222,6 +227,9 @@ def efeito_tempo(e, onde, T, fala, insercoes, camadas, erros):
     """Tempo de um efeito preso a camada, insercao, legenda, âncora (em) ou t. Devolve (t, aviso, rótulo)."""
     em = e.get("em", "inicio")
     if e.get("camada"):
+        if not (em in ("inicio", "fim") or re.fullmatch(r"recorte(#\d+)?", str(em))):
+            erros.append(f"{onde}: com \"camada\", \"em\" é \"inicio\", \"fim\", \"recorte\" ou \"recorte#k\"")
+            return None, "", ""
         if camadas is None:
             erros.append(f"{onde}: usa \"camada\", mas o som.json não diz qual é o insercoes.json")
             return None, "", ""
