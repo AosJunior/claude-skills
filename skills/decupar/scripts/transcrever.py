@@ -32,9 +32,9 @@ import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import (CAP_PALAVRA, VIDEO, assinatura_video, checar_ffmpeg, encoder, fmt_dur, fmt_num,  # noqa: E402
-                   fmt_tempo, gravar_json, hwaccel, ler_json, orientacao, pasta_decupagem, proxy_valido, rodar,
-                   sair, sondar, tamanho, utf8)
+from comum import (CAP_PALAVRA, VIDEO, achar_marca, assinatura_video, checar_ffmpeg, encoder, fmt_dur,  # noqa: E402
+                   fmt_num, fmt_tempo, gravar_json, hwaccel, ler_json, orientacao, pasta_decupagem, proxy_valido,
+                   rodar, sair, sondar, tamanho, texto_marca, utf8)
 
 VERSAO = 1
 IDIOMA = "pt"
@@ -459,6 +459,7 @@ def main():
     longas = [g for g in gaps if g > PAUSA_CORTE]
     fps = info["fps_num"] / info["fps_den"]
     print(f"Pasta: {pasta}")
+    print(texto_marca(achar_marca(pasta.parent)))
     print(f"Vídeo: {fmt_dur(info['duracao'])} · {info['largura']}×{info['altura']} {orientacao(info)} · "
           f"{fmt_num(fps, 2).rstrip('0').rstrip(',')} quadros/s" + (" · HDR" if info["hdr"] else ""))
     print(f"Transcrição: {sum(1 for w in pal if w['w'])} palavras em {len(frs)} frases → transcricao.txt"

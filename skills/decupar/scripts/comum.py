@@ -11,7 +11,6 @@ from pathlib import Path
 
 VIDEO = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".mts", ".3gp"}
 AUDIO_EVITAR = {"apple_apac"}          # áudio espacial do iPhone: não serve para transcrever nem para cortar
-MARCAS_DISPLAY_MATRIX = {"XAVC"}       # Sony: o Premiere já gira sozinho (conferido no pipeline de edição)
 PADROES = [Fraction(24000, 1001), Fraction(24), Fraction(25), Fraction(30000, 1001), Fraction(30),
            Fraction(50), Fraction(60000, 1001), Fraction(60)]
 CAP_PALAVRA = 1.0                      # s; o Whisper estica palavra por cima de pausa: limita a duração
@@ -126,6 +125,35 @@ def sondar(video):
         "transferencia": vs.get("color_transfer") or "",
         "hdr": (vs.get("color_transfer") or "") in ("arib-std-b67", "smpte2084"),
     }
+
+
+def chave_palavra(w):
+    """Palavra sem acento, caixa e pontuação ("Vocês," -> "voces"): é assim que as âncoras comparam."""
+    s = unicodedata.normalize("NFKD", str(w)).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
+def achar_marca(pasta):
+    """Sobe a partir da pasta do vídeo até achar marca/estilo.md (ou chegar à raiz do disco).
+    Devolve a pasta marca/ ou None. Igual em todas as skills do kit (contrato, seção 1)."""
+    p = Path(os.path.abspath(Path(pasta).expanduser()))
+    for d in (p, *p.parents):
+        if (d / "marca" / "estilo.md").is_file():
+            return d / "marca"
+    return None
+
+
+def texto_marca(marca):
+    return f"Marca: {marca}" if marca else "Marca: nenhuma"
+
+
+def resolver(caminho, base, marca):
+    """Caminho escrito num JSON: "marca/..." vale contra a pasta de edição; o resto, contra a pasta do JSON."""
+    c = str(caminho).replace("\\", "/")
+    if c.startswith("marca/"):
+        return (marca.parent / c) if marca else None
+    p = Path(c).expanduser()
+    return p if p.is_absolute() else Path(base) / p
 
 
 def orientacao(info):
