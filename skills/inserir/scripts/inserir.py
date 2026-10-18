@@ -1,47 +1,56 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = ["playwright>=1.48", "fonttools>=4.50"]
+# dependencies = ["playwright>=1.48", "fonttools>=4.50", "numpy>=1.26", "opencv-python-headless>=4.9"]
 # ///
-"""/inserir: desenha os cartões de inserção e a legenda em HTML, fotografa em PNG transparente e grava no vídeo.
+"""/inserir: desenha a legenda, os cartões e as peças em HTML, fotografa em PNG transparente e grava tudo no vídeo,
+num render só.
 
-Uso:  uv run "<skill>/scripts/inserir.py" "<pasta decupagem>" --cartoes      só os cartões: cartoes.png para conferir
-      uv run "<skill>/scripts/inserir.py" "<pasta decupagem>"                vídeo com inserções e legenda + quadros/
+Uso:  uv run "<skill>/scripts/inserir.py" "<pasta decupagem>" --cartoes      só o que é desenhado: cartoes.png
+      uv run "<skill>/scripts/inserir.py" "<pasta decupagem>"                vídeo final + quadros/
       opções: --video V (padrão: final.mp4, senão previa.mp4 da decupagem) · --pasta P (padrão: <pai>/insercoes)
-              --saida ARQ.mp4 · --sem-legenda
+              --saida ARQ.mp4 · --sem-legenda · --mascara auto|vision|rvm · --trabalhadores N
 
-Lê:   <pasta decupagem>/legenda.srt e <P>/insercoes.json (o Claude escreve; formato no SKILL.md).
-Grava em <P>/: cartoes.png (todos os cartões, para conferir), legenda-curta.srt (2 a 4 palavras por vez),
-      quadros/*.jpg (quadros do resultado para conferir), .render/ (PNGs; refaz só o que mudou) e o vídeo final.
-O vídeo de entrada só é lido. O ffmpeg do Homebrew não desenha texto: cada legenda vira um PNG transparente
-desenhado pelo navegador e entra por cima do vídeo no tempo dela.
+Lê:   <pasta decupagem>/palavras-corte.json (senão legenda.srt) e <P>/insercoes.json (formato em referencia.md).
+Grava em <P>/: cartoes.png, legenda-curta.srt (a mesma lista da legenda gravada), quadros/folha.jpg, .render/ (PNGs;
+      refaz só o que mudou), .dados/geometria.json (tudo o que foi desenhado, para a /criticar), .dados/mascaras/
+      e o vídeo final. Sem `divididas` nem `camadas`, monta com o ffmpeg (rápido); com elas, com o compor.py.
+Sai com código 2 quando há ATENÇÃO (zona segura, letra que a fonte não tem): nesse caso não grava o vídeo.
 """
 import argparse
 import base64
 import hashlib
+import html as html_mod
 import json
+import math
 import mimetypes
+import os
 import re
+import shutil
+import subprocess
 import sys
 import time
 import unicodedata
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import (checar_ffmpeg, fmt_num, fmt_tempo, info_video, ler_json, ler_srt, navegador, rodar, sair,
-                   srt_tempo, tempo, utf8)
+import legenda as L
+from comum import (Ancoras, achar_marca, caminho, checar_ffmpeg, contar_quadros, fmt_num, fmt_tempo, info_video,
+                   ler_json, navegador, rodar, sair, srt_tempo, tempo, utf8)
 
-MODELO = Path(__file__).resolve().parent.parent / "modelos" / "cartao.html"
+AQUI = Path(__file__).resolve().parent
+MODELO = AQUI.parent / "modelos" / "cartao.html"
 PADRAO = {
     "fonte": None, "fonte_destaque": None, "tamanho": 64, "cor": "#FFFFFF", "cor_destaque": "#FFFFFF",
     "escala_destaque": 1.12, "sombra": 0.45, "maiusculas": False, "legenda_y": 1400, "margem": 110,
     "palavras_max": 4, "letras_max": 22, "legenda_y_alto": 330,
     "cartao_fundo": "#141414", "cartao_tinta": "#F5F2EC", "cartao_destaque": "#E8C27A",
+    "minusculas": False, "juntar_numeros": False, "nomes": [], "destaque_y": None, "zona_segura": [260, 1600],
 }
+# réguas padrão: valem quando a receita de formato ou o marca/estilo.md não dizem outra coisa (estilo.reguas)
+REGUAS = {"primeiro_segundo": 1.0, "min": 1.5, "max": 6.0, "max_painel": 10.0, "respiro": 2.0}
 TIPOS = {"lista", "etapas", "numero", "comparacao", "frase", "print", "imagem", "titulo", "colagem", "dividida"}
-# a legenda nunca termina nestas palavras: elas vão para a próxima
-LIGA = {"de", "da", "do", "das", "dos", "o", "a", "os", "as", "um", "uma", "pra", "para", "com", "e", "que", "em",
-        "no", "na", "nos", "nas", "por", "pelo", "pela", "se", "ao", "à", "mais", "muito", "meu", "minha", "seu", "sua"}
-PONT = ".,;:!?\"“”'…()"
+TIPOS_CAMADA = {"video", "imagem", "faixa", "html"}
+LUGARES = {"topo", "atras", "frente"}
 
 
 def ascii_(w):
@@ -49,115 +58,50 @@ def ascii_(w):
 
 
 def norm(w):
-    return w.strip(PONT).lower()
-
-
-# ---------------------------------------------------------------- legenda
-
-def agrupar(ws, pmax, lmax):
-    grupos, atual = [], []
-    for w in ws:
-        if atual and (len(atual) >= pmax or len(" ".join(atual + [w])) > lmax):
-            grupos.append(atual)
-            atual = []
-        atual.append(w)
-    if atual:
-        grupos.append(atual)
-    for i in range(len(grupos) - 1):          # não termina em "de", "o", "pra"...
-        while len(grupos[i]) > 1 and norm(grupos[i][-1]) in LIGA and len(grupos[i + 1]) < pmax:
-            grupos[i + 1].insert(0, grupos[i].pop())
-    if len(grupos) > 1 and len(grupos[-1]) == 1 and len(grupos[-2]) < pmax and \
-            len(" ".join(grupos[-2] + grupos[-1])) <= lmax + 4:
-        ult = grupos.pop()
-        grupos[-1] += ult                      # palavra sozinha no fim junta com a anterior
-    elif len(grupos) > 1 and len(grupos[-1]) == 1 and len(grupos[-2]) >= 3:
-        grupos[-1].insert(0, grupos[-2].pop())  # sem espaço para juntar: a anterior cede uma palavra
-    return grupos
-
-
-def picotar(ini, fim, texto, pmax, lmax):
-    """Divide um bloco do .srt em pedaços de até pmax palavras e lmax letras, com tempo proporcional às letras.
-    A vírgula é ponto de quebra: "comprar, só que enquanto" vira "comprar" + "só que enquanto"."""
-    if len(texto.split()) <= pmax and len(texto) <= lmax:
-        return [(ini, fim, texto.split())]    # cabe numa legenda só: fica inteiro
-    oracoes, atual = [], []
-    for w in texto.split():
-        atual.append(w)
-        if re.search(r"[,;:]$", w):
-            oracoes.append(atual)
-            atual = []
-    if atual:
-        oracoes.append(atual)
-    juntas = []                                # oração de uma palavra curta ("Mas,", "E,") vai com a seguinte
-    for o in oracoes:
-        if juntas and len(juntas[-1]) == 1 and len(juntas[-1][0].strip(PONT)) <= 4:
-            juntas[-1] += o
-        else:
-            juntas.append(list(o))
-    grupos = [g for o in juntas for g in agrupar(o, pmax, lmax)]
-    total = sum(len(" ".join(g)) + 1 for g in grupos)
-    out, t = [], ini
-    for g in grupos:
-        d = (fim - ini) * (len(" ".join(g)) + 1) / total
-        out.append((t, t + d, g))
-        t += d
-    return out
-
-
-def posicionar(leg, ins, estilo):
-    """Cada legenda ganha a altura dela: sobe para o alto quando a inserção pede ("legenda": "alto"),
-    some quando pede ("legenda": "some", ex.: tela dividida com faixa) e fica em legenda_y no resto."""
-    out = []
-    for a, b, ws in leg:
-        y = estilo["legenda_y"]
-        for d in ins:
-            if a < d["ate"] - 0.05 and b > d["de"] + 0.05:
-                pos = d.get("legenda") or ("some" if d["tipo"] == "dividida" else None)
-                if pos == "some":
-                    y = None
-                elif pos == "alto":
-                    y = estilo["legenda_y_alto"]
-                elif isinstance(pos, (int, float)):
-                    y = pos
-        if y is not None:
-            out.append((a, b, ws, y))
-    return out
-
-
-def montar_legendas(srt, estilo, destaques, correcoes):
-    dest = {norm(w) for w in destaques}
-    leg = []
-    for ini, fim, texto in ler_srt(srt):
-        for errado, certo in correcoes.items():      # palavra que o Whisper ouviu errado
-            texto = re.sub(rf"(?<!\w){re.escape(errado)}(?!\w)", certo, texto)
-        for a, b, g in picotar(ini, fim, texto, estilo["palavras_max"], estilo["letras_max"]):
-            g = list(g)
-            g[-1] = g[-1].rstrip(".,;:…")    # pontuação no fim do pedaço sai; "?" e "!" ficam
-            leg.append((a, b, [[w, norm(w) in dest] for w in g if w]))
-    return leg
+    return L.norm(w)
 
 
 # ---------------------------------------------------------------- mapa de inserções
 
-def ler_mapa(pasta):
+class Mapa:
+    """O insercoes.json lido: tempos já em segundos (âncoras resolvidas) e caminhos já resolvidos."""
+
+
+def ler_mapa(pasta, dec, marca, pasta_video):
     p = pasta / "insercoes.json"
     if not p.exists():
-        sair(f"Falta o {p}. Escreva o mapa de inserções antes (formato no SKILL.md).")
+        sair(f"Falta o {p}. Escreva o mapa de inserções antes (formato em referencia.md).")
     m = ler_json(p)
+    M = Mapa()
+    M.correcoes = m.get("correcoes") or {}
+    M.destaques = m.get("destaques") or []
+    anc = Ancoras(dec, M.correcoes)
+    M.ancoras = anc
+    T = lambda v, onde, fim=False: anc.tempo(v, onde, fim)
+    arq = lambda s, onde: caminho(s, pasta, marca, onde)
+
     estilo = {**PADRAO, **(m.get("estilo") or {})}
     for k in ("fonte", "fonte_destaque"):
         if estilo[k]:
-            f = Path(estilo[k]).expanduser()
-            f = f if f.is_absolute() else (pasta / f)
+            f = arq(estilo[k], f"insercoes.json, estilo.{k}")
             if not f.exists():
                 sair(f"insercoes.json, estilo.{k}: não achei o arquivo {f}.")
             estilo[k] = str(f.resolve())
+    estilo["reguas"] = {**REGUAS, **(estilo.get("reguas") or {})}
+    M.estilo = estilo
+
+    # faixas da legenda: a lista "legenda" e depois quem pede "legenda" (camada ou inserção); a última que pega manda
+    faixas = []
+    for n, f in enumerate(m.get("legenda") or [], 1):
+        onde = f"insercoes.json, legenda {n}"
+        faixas.append((T(f.get("de", 0), onde), T(f.get("ate"), onde, True), f.get("y"), f.get("aceito")))
+
     ins = []
     for n, d in enumerate(m.get("insercoes") or [], 1):
         onde = f"insercoes.json, inserção {n}"
         if d.get("tipo") not in TIPOS:
             sair(f"{onde}: tipo {d.get('tipo')!r} não existe. Use um destes: {', '.join(sorted(TIPOS))}.")
-        d = dict(d, n=n, de=tempo(d["de"], onde), ate=tempo(d["ate"], onde))
+        d = dict(d, n=n, de=T(d["de"], onde), ate=T(d["ate"], onde, True))
         if d["ate"] <= d["de"]:
             sair(f"{onde}: o fim vem antes do início.")
         if d["tipo"] in ("lista", "etapas"):
@@ -165,37 +109,169 @@ def ler_mapa(pasta):
             for k, it in enumerate(d.get("itens") or []):
                 it = {"texto": it} if isinstance(it, str) else dict(it)
                 # item sem tempo: entram espalhados na primeira metade da inserção
-                it["t"] = tempo(it["t"], onde) if "t" in it else d["de"] + k * (d["ate"] - d["de"]) * 0.5 / max(1, len(d["itens"]))
+                it["t"] = T(it["t"], onde) if "t" in it else d["de"] + k * (d["ate"] - d["de"]) * 0.5 / max(1, len(d["itens"]))
                 itens.append(it)
             if not itens:
                 sair(f"{onde}: lista sem itens.")
             d["itens"] = itens
         if d["tipo"] == "comparacao":
-            d["t_direita"] = tempo(d.get("t_direita", (d["de"] + d["ate"]) / 2), onde)
+            d["t_direita"] = T(d.get("t_direita", (d["de"] + d["ate"]) / 2), onde)
         if d["tipo"] == "colagem":
             pecas = []
             for k, pc in enumerate(d.get("pecas") or []):
                 pc = dict(pc)
-                f = Path(pc.get("imagem", "")).expanduser()
-                f = f if f.is_absolute() else (pasta / f)
+                f = arq(pc.get("imagem", ""), onde)
                 if not f.is_file():
                     sair(f"{onde}: não achei a imagem {f}.")
                 pc["imagem_url"] = data_url(f)
                 # peça sem tempo: entram espalhadas na primeira metade da inserção
-                pc["t"] = tempo(pc["t"], onde) if "t" in pc else d["de"] + k * (d["ate"] - d["de"]) * 0.5 / max(1, len(d["pecas"]))
+                pc["t"] = T(pc["t"], onde) if "t" in pc else d["de"] + k * (d["ate"] - d["de"]) * 0.5 / max(1, len(d["pecas"]))
                 pecas.append(pc)
             if not pecas:
                 sair(f"{onde}: colagem sem peças.")
             d["pecas"] = pecas
         if d["tipo"] in ("print", "imagem", "dividida"):
-            f = Path(d.get("imagem", "")).expanduser()
-            f = f if f.is_absolute() else (pasta / f)
+            f = arq(d.get("imagem", ""), onde)
             if not f.is_file():
                 sair(f"{onde}: não achei a imagem {f}.")
             d["imagem_url"] = data_url(f)
         ins.append(d)
     ins.sort(key=lambda d: d["de"])
-    return estilo, m.get("destaques") or [], m.get("correcoes") or {}, ins
+    for d in ins:
+        pos = d.get("legenda") or ("some" if d["tipo"] == "dividida" else None)
+        if pos is not None:
+            faixas.append((d["de"], d["ate"], pos, d.get("aceito")))
+    M.ins = ins
+
+    # telas divididas
+    divs = []
+    for n, d in enumerate(m.get("divididas") or [], 1):
+        onde = f"insercoes.json, dividida {n}"
+        d = dict(d, id=d.get("id") or f"dividida-{n}", de=T(d.get("de", 0), onde), ate=T(d.get("ate"), onde, True))
+        d["corte"] = int(d.get("corte", 960))
+        pessoa = d.get("pessoa") or [{"de": d["de"], "recorte_y": d.get("recorte_y", 0)}]
+        d["pessoa"] = [dict(pp, de=T(pp.get("de", d["de"]), onde), recorte_y=int(pp.get("recorte_y", 0)),
+                            escala=float(pp.get("escala", 1.0))) for pp in pessoa]
+        d.setdefault("laterais", "borrado")
+        if d["ate"] <= d["de"]:
+            sair(f"{onde}: o fim vem antes do início.")
+        divs.append(d)
+    M.divididas = divs
+
+    # camadas
+    fontes_md = pasta_video / "brutos" / "fontes.md"
+    origens = fontes_md.read_text(encoding="utf-8") if fontes_md.exists() else ""
+    cams, ids = [], set()
+    for n, c in enumerate(m.get("camadas") or [], 1):
+        c = dict(c)
+        onde = f"insercoes.json, camada {n}" + (f" ({c['id']})" if c.get("id") else "")
+        if c.get("tipo") not in TIPOS_CAMADA:
+            sair(f"{onde}: tipo {c.get('tipo')!r} não existe. Use um destes: {', '.join(sorted(TIPOS_CAMADA))}.")
+        c["id"] = c.get("id") or f"{c['tipo']}-{n}"
+        if c["id"] in ids:
+            sair(f"{onde}: o id {c['id']!r} se repete; cada camada precisa de um id dela.")
+        ids.add(c["id"])
+        c["n"] = n
+        c["lugar"] = c.get("lugar") or "frente"
+        if c["lugar"] not in LUGARES:
+            sair(f"{onde}: lugar {c['lugar']!r} não existe. Use topo, atras ou frente.")
+        c["de"], c["ate"] = T(c.get("de", 0), onde), T(c.get("ate"), onde, True)
+        if c["ate"] <= c["de"]:
+            sair(f"{onde}: o fim vem antes do início.")
+        for k in ("entra", "sai"):
+            v = c.get(k)
+            c[k] = {"efeito": "alfa", "dur": float(v)} if isinstance(v, (int, float)) else (
+                {"efeito": v.get("efeito", "pop"), "dur": float(v.get("dur", 0.18))} if isinstance(v, dict) else None)
+        if c["tipo"] in ("video", "imagem"):
+            f = arq(c.get("arquivo", ""), onde)
+            if not f.is_file():
+                sair(f"{onde}: não achei o arquivo {f}.")
+            try:
+                f.relative_to(Path(os.path.normpath(pasta_video / "brutos")))
+                de_brutos = True
+            except ValueError:
+                de_brutos = False
+            if de_brutos and not re.search(rf"(?<![\w.-]){re.escape(f.name)}(?![\w-])", origens):
+                sair(f"{onde}: {f.name} veio de brutos/, mas não tem a origem anotada em brutos/fontes.md. "
+                     f"Escreva uma linha com «{f.name}», o endereço de onde veio e a licença.")
+            c["arquivo"] = str(f)
+        if c["tipo"] == "html":
+            f = arq(c.get("modelo", ""), onde)
+            if not f.is_file():
+                sair(f"{onde}: não achei o modelo {f}.")
+            c["modelo"] = str(f)
+        if c["tipo"] == "faixa":
+            if c.get("fonte"):
+                f = arq(c["fonte"], onde)
+                if not f.is_file():
+                    sair(f"{onde}: não achei a fonte {f}.")
+                c["fonte"] = str(f)
+        if c["tipo"] == "video":
+            preparar_video(c, divs, T, onde)
+        elif c["tipo"] == "imagem":
+            import cv2
+            img = cv2.imread(c["arquivo"], cv2.IMREAD_UNCHANGED)
+            if img is None:
+                sair(f"{onde}: não consegui abrir a imagem {c['arquivo']}.")
+            ih, iw = img.shape[:2]
+            c["w"] = int(c.get("w") or iw)
+            c["h"] = int(c.get("h") or round(ih * c["w"] / iw))
+            c.setdefault("x", 0)
+            c.setdefault("y", 0)
+        if "legenda" in c:
+            faixas.append((c["de"], c["ate"], c["legenda"], c.get("aceito")))
+        cams.append(c)
+    M.camadas = cams
+    M.faixas = faixas
+    return M
+
+
+def dims(arq):
+    r = rodar(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=width,height,duration",
+               "-show_entries", "format=duration", "-of", "json", arq])
+    d = json.loads(r.stdout)
+    s = d["streams"][0]
+    return s["width"], s["height"], float(d.get("format", {}).get("duration") or 0)
+
+
+def preparar_video(c, divs, T, onde):
+    """Camada de vídeo: tamanho na tela e os trechos (recorte fixo ou com mudança no tempo, o "aberto e depois o zoom")."""
+    sw, sh, sdur = dims(c["arquivo"])
+    rec = c.get("recorte")
+    if rec and isinstance(rec[0], (int, float)):
+        rec = [{"t": 0, "caixa": rec}]
+    rec = sorted([dict(r, t=float(r.get("t", 0))) for r in rec], key=lambda r: r["t"]) if rec else [{"t": 0, "caixa": None}]
+    for r in rec:
+        cx = r.get("caixa")
+        if cx and (cx[0] < 0 or cx[1] < 0 or cx[0] + cx[2] > sw or cx[1] + cx[3] > sh):
+            sair(f"{onde}: o recorte {cx} sai do vídeo de origem ({sw}×{sh}).")
+    caixa0 = rec[0].get("caixa")
+    asp = (caixa0[3] / caixa0[2]) if caixa0 else sh / sw
+    if c["lugar"] == "topo":
+        div = next((d for d in divs if d["de"] <= c["de"] + 0.01 < d["ate"]), None)
+        c.setdefault("w", 720)
+        c.setdefault("h", div["corte"] if div else 960)
+    else:
+        if not c.get("w"):
+            sair(f"{onde}: falta a largura (w) da camada na tela.")
+        c.setdefault("h", int(round(c["w"] * asp)))
+        c.setdefault("x", 0)
+        c.setdefault("y", 0)
+    c["w"], c["h"] = int(c["w"]), int(c["h"])
+    src0 = float(c.get("src", 0))
+    trechos = []
+    for k, r in enumerate(rec):
+        de = c["de"] + r["t"]
+        ate = c["de"] + rec[k + 1]["t"] if k + 1 < len(rec) else c["ate"]
+        if ate <= de:
+            continue
+        src = float(r["src"]) if "src" in r else src0 + r["t"]
+        dur = r.get("dur", c.get("dur") if k == 0 else None)
+        if src >= sdur:
+            sair(f"{onde}: o src {fmt_num(src, 2)} s passa do fim do vídeo de origem ({fmt_num(sdur, 2)} s).")
+        trechos.append({"de": de, "ate": ate, "arquivo": c["arquivo"], "src": src, "caixa": r.get("caixa"),
+                        "dur": float(dur) if dur else None})
+    c["trechos"] = trechos
 
 
 def estados(d):
@@ -211,28 +287,59 @@ def estados(d):
     return [(t, marcos[i + 1][0] if i + 1 < len(marcos) else d["ate"], e) for i, (t, e) in enumerate(marcos)]
 
 
-def conferir(ins, estilo, dur):
+# ---------------------------------------------------------------- réguas e zona segura
+
+def conferir(M, dur):
+    """Avisos das réguas (padrão ou da receita) para o que cobre o rosto: cartões e camadas da frente.
+    Camada atrás da pessoa ou no topo da dividida não cobre o rosto e não entra aqui."""
+    R = M.estilo["reguas"]
     avisos = []
-    for i, d in enumerate(ins):
+    ins = M.ins
+    for i in range(1, len(ins)):
+        if ins[i]["de"] < ins[i - 1]["ate"]:
+            sair(f"Inserção {ins[i]['n']} ({fmt_tempo(ins[i]['de'])}) começa antes da inserção {ins[i - 1]['n']} terminar. "
+                 "Ajuste os tempos.")
+    em_dividida = lambda t: any(d["de"] - 0.05 <= t < d["ate"] for d in M.divididas) or \
+        any(d["tipo"] == "dividida" and d["de"] - 0.05 <= t < d["ate"] for d in ins)
+    cobre = []
+    for d in ins:
         nome = f"Inserção {d['n']} ({fmt_tempo(d['de'])}, {d['tipo']})"
-        if d["de"] < 1.0 and d["tipo"] != "dividida":
-            avisos.append(f"{nome}: entra no primeiro segundo, em cima do gancho. Comece depois de 1 s.")
-        if d["ate"] > dur + 0.05:
-            avisos.append(f"{nome}: termina depois do fim do vídeo ({fmt_tempo(dur)}).")
-        if d["ate"] - d["de"] > 6 and d.get("formato") != "painel" and d["tipo"] not in ("titulo", "colagem"):
-            avisos.append(f"{nome}: fica {fmt_num(d['ate'] - d['de'])} s na tela; acima de 6 s o rosto some por tempo demais.")
-        if d["ate"] - d["de"] > 10:
-            avisos.append(f"{nome}: painel de {fmt_num(d['ate'] - d['de'])} s; acima de 10 s ele vira parte do cenário.")
-        if i and d["de"] < ins[i - 1]["ate"]:
-            sair(f"{nome} começa antes da inserção {ins[i - 1]['n']} terminar. Ajuste os tempos.")
-        if i and d["de"] - ins[i - 1]["ate"] < 2.0:
-            avisos.append(f"{nome}: só {fmt_num(d['de'] - ins[i - 1]['ate'])} s de rosto depois da anterior (régua: uns 2 s).")
+        maxd = None if d["tipo"] in ("titulo", "colagem") else (R["max_painel"] if d.get("formato") == "painel" else R["max"])
+        cobre.append((d, nome, d["tipo"] == "dividida", maxd))
         for it in d.get("itens", []):
             if not d["de"] <= it["t"] < d["ate"]:
-                avisos.append(f"{nome}: o item «{it['texto']}» entra fora da inserção ({fmt_tempo(it['t'])}).")
-    if contraste(estilo["cor"], estilo["cartao_fundo"]) < 3 and any(d.get("formato") != "painel" for d in ins):
-        avisos.append("A cor da legenda quase some no fundo dos cartões de tela cheia: troque cartao_fundo ou cor.")
-    return avisos
+                avisos.append((d, f"{nome}: o item «{it['texto']}» entra fora da inserção ({fmt_tempo(it['t'])})."))
+    for c in M.camadas:
+        if c["lugar"] == "frente":
+            cobre.append((c, f"Camada {c['id']} ({fmt_tempo(c['de'])}, {c['tipo']})", False, R["max"]))
+        if c["lugar"] == "topo" and not any(d["de"] - 0.05 <= c["de"] and c["ate"] <= d["ate"] + 0.05 for d in M.divididas):
+            avisos.append((c, f"Camada {c['id']}: está no topo, mas fora de uma tela dividida; fora dela não aparece."))
+    cobre.sort(key=lambda x: x[0]["de"])
+    ant = None
+    for d, nome, isenta, maxd in cobre:
+        dd = d["ate"] - d["de"]
+        if R.get("primeiro_segundo") and d["de"] < R["primeiro_segundo"] and not isenta and not em_dividida(d["de"]):
+            avisos.append((d, f"{nome}: entra no primeiro segundo, em cima do gancho (régua: depois de "
+                              f"{fmt_num(R['primeiro_segundo'])} s)."))
+        if d["ate"] > dur + 0.05:
+            avisos.append((d, f"{nome}: termina depois do fim do vídeo ({fmt_tempo(dur)})."))
+        if R.get("min") and dd < R["min"] and not isenta:
+            avisos.append((d, f"{nome}: fica só {fmt_num(dd)} s na tela (régua: de {fmt_num(R['min'])} s para cima)."))
+        if maxd and R.get("max") and dd > maxd:
+            avisos.append((d, f"{nome}: fica {fmt_num(dd)} s na tela; acima de {fmt_num(maxd)} s o rosto some por tempo demais."))
+        if ant is not None and R.get("respiro") and 0 <= d["de"] - ant["ate"] < R["respiro"]:
+            avisos.append((d, f"{nome}: só {fmt_num(d['de'] - ant['ate'])} s de rosto depois da anterior "
+                              f"(régua: {fmt_num(R['respiro'])} s)."))
+        ant = d if ant is None or d["ate"] > ant["ate"] else ant
+    e = M.estilo
+    if contraste(e["cor"], e["cartao_fundo"]) < 3 and any(d.get("formato") != "painel" and d["tipo"] not in
+                                                          ("titulo", "colagem", "dividida", "imagem") for d in ins):
+        avisos.append(({}, "A cor da legenda quase some no fundo dos cartões de tela cheia: troque cartao_fundo ou cor."))
+    return [txt for d, txt in avisos if not d.get("aceito")]
+
+
+def fora_da_zona(caixa, zona):
+    return caixa and (caixa[1] < zona[0] - 0.5 or caixa[1] + caixa[3] > zona[1] + 0.5)
 
 
 def lum(h):
@@ -287,58 +394,116 @@ def textos(ins, leg, estilo):
 
 # ---------------------------------------------------------------- desenhar
 
-def desenhar(pasta_render, estilo, leg, ins):
-    """Fotografa cada legenda e cada estado de cartão. Nome do PNG = impressão digital do conteúdo: só refaz o que mudou."""
-    from playwright.sync_api import sync_playwright
+def html_preenchido(c, pasta_render):
+    """O modelo html da camada com cada {{campo}} trocado pelo texto (escapado) e a base apontando para a pasta do modelo."""
+    modelo = Path(c["modelo"])
+    txt = modelo.read_text(encoding="utf-8")
+    campos = c.get("campos") or {}
+    faltam = sorted(set(re.findall(r"\{\{\s*(\w+)\s*\}\}", txt)) - set(campos))
+    if faltam:
+        sair(f"Camada {c['id']}: o modelo {modelo.name} pede {', '.join(faltam)} em «campos».")
+    txt = re.sub(r"\{\{\s*(\w+)\s*\}\}", lambda m: html_mod.escape(str(campos[m.group(1)])), txt)
+    base = f'<base href="{modelo.parent.as_uri()}/">'
+    txt = re.sub(r"(<head[^>]*>)", r"\1" + base, txt, count=1, flags=re.I) if re.search(r"<head", txt, re.I) else base + txt
+    return txt
+
+
+def desenhar(pasta_render, estilo, leg, ins, cams):
+    """Fotografa cada legenda, cada estado de cartão e cada faixa ou html. Nome do PNG = impressão digital do
+    conteúdo: só refaz o que mudou. As medidas (caixa de cada desenho) ficam em medidas.json."""
     pasta_render.mkdir(parents=True, exist_ok=True)
     fontes = {k: data_url(estilo[c]) for k, c in (("F", "fonte"), ("D", "fonte_destaque")) if estilo[c]}
     # o desenho (cartao.html) entra na impressão digital: mudou o modelo, tudo é redesenhado
-    marca_estilo = hashlib.sha1(json.dumps(estilo, sort_keys=True).encode() + MODELO.read_bytes()).hexdigest()[:8]
+    so_estilo = {k: v for k, v in estilo.items() if k != "reguas"}
+    marca_estilo = hashlib.sha1(json.dumps(so_estilo, sort_keys=True).encode() + MODELO.read_bytes()).hexdigest()[:8]
     trabalhos = [("vazio", None)]
-    trabalhos += [("leg", (ws, y)) for _, _, ws, y in leg]
+    trabalhos += [("leg", (ws, y)) for _, _, ws, y, *_ in leg]
     for d in ins:
         for _, _, e in estados(d):
             trabalhos.append(("cartao", (d, e)))
+    for c in cams:
+        if c["tipo"] in ("faixa", "html"):
+            trabalhos.append((c["tipo"], c))
     nomes, a_fazer = [], []
     for tipo, x in trabalhos:
-        chave = json.dumps([tipo, marca_estilo, x if tipo != "cartao" else
-                            ({k: v for k, v in x[0].items() if k not in ("n",)}, x[1])], sort_keys=True, default=str)
+        if tipo == "cartao":
+            x_chave = ({k: v for k, v in x[0].items() if k not in ("n",)}, x[1])
+        elif tipo == "faixa":
+            fonte = Path(x["fonte"]).read_bytes() if x.get("fonte") else b""
+            x_chave = [{k: x.get(k) for k in ("texto", "x", "y", "largura", "altura", "raio", "fundo", "tinta", "tamanho")},
+                       hashlib.sha1(fonte).hexdigest()]
+        elif tipo == "html":
+            x_chave = html_preenchido(x, pasta_render)
+        else:
+            x_chave = x
+        chave = json.dumps([tipo, marca_estilo, x_chave], sort_keys=True, default=str)
         nome = f"{tipo}-{hashlib.sha1(chave.encode()).hexdigest()[:12]}.png"
         nomes.append(nome)
         if not (pasta_render / nome).exists():
             a_fazer.append((nome, tipo, x))
-    medidas = {}
+    arq_medidas = pasta_render / "medidas.json"
+    medidas = ler_json(arq_medidas) if arq_medidas.exists() else {}
     if a_fazer:
+        from playwright.sync_api import sync_playwright
         with sync_playwright() as pw:
             nav = navegador(pw)
             pag = nav.new_page(viewport={"width": 1080, "height": 1920})
             pag.goto(MODELO.as_uri())
             pag.wait_for_function("window.__pronto === true")
-            pag.evaluate("([e, f]) => definirEstilo(e, f)", [estilo, fontes])
+            pag.evaluate("([e, f]) => definirEstilo(e, f)", [so_estilo, fontes])
+            pag2 = None
             for nome, tipo, x in a_fazer:
+                alvo = pag
                 if tipo == "leg":
                     medidas[nome] = pag.evaluate("([p, y]) => legenda(p, y)", [x[0], x[1]])
                 elif tipo == "cartao":
                     medidas[nome] = pag.evaluate("([d, e]) => montar(d, e)", [x[0], x[1]])
+                elif tipo == "faixa":
+                    d = {k: x.get(k) for k in ("texto", "x", "y", "largura", "altura", "raio", "fundo", "tinta", "tamanho")}
+                    medidas[nome] = pag.evaluate("([d, f]) => faixa(d, f)", [d, data_url(x["fonte"]) if x.get("fonte") else None])
+                elif tipo == "html":
+                    pag2 = pag2 or nav.new_page(viewport={"width": 1080, "height": 1920})
+                    f = pasta_render / (nome[:-4] + ".html")
+                    f.write_text(html_preenchido(x, pasta_render), encoding="utf-8")
+                    pag2.goto(f.as_uri())
+                    pag2.evaluate("document.fonts.ready")
+                    pag2.wait_for_timeout(100)
+                    alvo = pag2
                 else:
-                    pag.evaluate("() => { document.getElementById('cartao').className=''; document.getElementById('leg').style.display='none'; }")
-                pag.screenshot(path=str(pasta_render / nome), omit_background=True)
+                    pag.evaluate("() => { document.getElementById('cartao').className=''; "
+                                 "document.getElementById('leg').style.display='none'; "
+                                 "document.getElementById('faixa').style.display='none'; }")
+                alvo.screenshot(path=str(pasta_render / nome), omit_background=True)
                 if tipo == "cartao":
                     # cartão de tela cheia sai sem transparência (RGB); a trilha precisa de todos os PNG em RGBA
                     f = pasta_render / nome
                     rodar(["ffmpeg", "-y", "-v", "error", "-i", f, "-pix_fmt", "rgba", f.with_suffix(".tmp.png")])
                     f.with_suffix(".tmp.png").replace(f)
+                if tipo == "html":
+                    medidas[nome] = {"caixa": caixa_alfa(pasta_render / nome)}
             nav.close()
+        arq_medidas.write_text(json.dumps(medidas), encoding="utf-8")
     return nomes, medidas
 
 
-def folha_cartoes(pasta, pasta_render, ins, nomes_cartoes):
-    """cartoes.png: todos os estados dos cartões lado a lado, pequenos, para conferir antes do vídeo."""
+def caixa_alfa(png):
+    """[x, y, w, h] da parte desenhada (alfa > 0) de um PNG."""
+    import cv2
+    import numpy as np
+    a = cv2.imread(str(png), cv2.IMREAD_UNCHANGED)
+    if a is None or a.ndim < 3 or a.shape[2] < 4:
+        return None
+    ys, xs = np.nonzero(a[..., 3] > 8)
+    if not len(xs):
+        return None
+    return [int(xs.min()), int(ys.min()), int(xs.max() - xs.min() + 1), int(ys.max() - ys.min() + 1)]
+
+
+def folha_cartoes(pasta, pasta_render, celulas):
+    """cartoes.png: todos os desenhos (estados dos cartões, faixas, letterings) lado a lado, pequenos, para conferir."""
     from playwright.sync_api import sync_playwright
-    cel = []
-    for (d, e), nome in nomes_cartoes:
-        rot = f"{d['n']} · {fmt_tempo(d['de'])} · {d['tipo']}" + (f" ({e})" if d["tipo"] in ("lista", "etapas", "comparacao") else "")
-        cel.append(f'<figure><img src="{data_url(pasta_render / nome)}"><figcaption>{rot}</figcaption></figure>')
+    cel = [f'<figure><img src="{data_url(pasta_render / nome)}"><figcaption>{html_mod.escape(rot)}</figcaption></figure>'
+           for rot, nome in celulas]
     html = ("<html><body style='margin:0;background:#777;font:16px sans-serif;display:flex;flex-wrap:wrap;gap:12px;padding:12px;width:1176px'>"
             "<style>figure{margin:0;width:270px}img{width:270px;height:480px;display:block;background:#3a3a3a}"
             "figcaption{color:#fff;padding:4px 0}</style>" + "".join(cel) + "</body></html>")
@@ -350,7 +515,7 @@ def folha_cartoes(pasta, pasta_render, ins, nomes_cartoes):
         nav.close()
 
 
-# ---------------------------------------------------------------- compor
+# ---------------------------------------------------------------- compor: caminho rápido (só ffmpeg)
 
 def trilha(pasta_render, nome, eventos, dur, fps):
     """ffconcat com um PNG por evento e o PNG vazio nos intervalos (tempos no quadro mais próximo)."""
@@ -373,7 +538,7 @@ def trilha(pasta_render, nome, eventos, dur, fps):
 VAZIO = ""
 
 
-def compor(video, info, faixas, saida, divididas=()):
+def compor_ffmpeg(video, info, faixas, saida, divididas=()):
     cmd = ["ffmpeg", "-y", "-v", "error", "-i", video]
     filtros, atual = [], "[0:v]"
     # tela dividida: no tempo do gancho, o vídeo desce para a metade de baixo (recorte em volta do rosto)
@@ -396,8 +561,87 @@ def compor(video, info, faixas, saida, divididas=()):
         sair("O ffmpeg falhou ao montar o vídeo:\n" + r.stderr[-1500:])
 
 
-def quadros(saida, pasta, ins, leg, dur):
-    """Quadros do resultado para conferir: cada estado de cartão e legendas com destaque, acento ou a mais longa."""
+# ---------------------------------------------------------------- compor: motor (dividida e camadas)
+
+def mascaras(video, pasta, M, fps, n_quadros, motor):
+    """Trechos de quadros com camada atrás da pessoa (fora da dividida), com folga; gera as máscaras que faltam."""
+    tr = []
+    for c in M.camadas:
+        if c["lugar"] != "atras":
+            continue
+        q0, q1 = max(0, int(round(c["de"] * fps)) - 3), min(n_quadros, int(round(c["ate"] * fps)) + 3)
+        tr.append([q0, q1])
+    tr.sort()
+    juntos = []
+    for q0, q1 in tr:
+        if juntos and q0 <= juntos[-1][1] + int(fps):
+            juntos[-1][1] = max(juntos[-1][1], q1)
+        else:
+            juntos.append([q0, q1])
+    if not juntos:
+        return []
+    print(f"Máscara da pessoa em {len(juntos)} trecho(s) ({fmt_num(sum(b - a for a, b in juntos) / fps)} s de vídeo); "
+          "no Mac com chip M, uns 8 quadros por segundo; depois fica guardada.", flush=True)
+    uv = shutil.which("uv")
+    cmd = ([uv, "run", "-q"] if uv else [sys.executable]) + [
+        str(AQUI / "mascara.py"), str(video), str(pasta / ".dados" / "mascaras"),
+        "--trechos", ",".join(f"{a}:{b}" for a, b in juntos), "--motor", motor, "--fps", FPS_TXT]
+    r = subprocess.run(cmd, stdout=subprocess.PIPE, text=True, encoding="utf-8", errors="replace")
+    linhas = r.stdout.strip().splitlines()
+    for l in linhas[:-1]:
+        print(l)
+    if r.returncode or not linhas:
+        sair("Não consegui gerar a máscara da pessoa." + ("\n" + "\n".join(linhas[-5:]) if linhas else ""))
+    d = json.loads(linhas[-1])
+    return d["mascaras"]
+
+
+FPS_TXT = "30/1"
+
+
+def codificador():
+    """Mac: o codificador do chip (h264_videotoolbox, 16 Mb/s); Windows e Linux: libx264 veryfast, crf 17."""
+    if sys.platform == "darwin" and "h264_videotoolbox" in rodar(["ffmpeg", "-hide_banner", "-encoders"]).stdout:
+        return {"codificador": "videotoolbox", "taxa": "16M"}
+    return {"codificador": "libx264", "preset": "veryfast", "crf": 17}
+
+
+def plano_compor(M, video, info, n_quadros, saida, pasta, render, pares, leg, nl, nomes_cam, masc, trab):
+    camadas, sons = [], []
+    for c in M.camadas:
+        base = {k: c.get(k) for k in ("id", "lugar", "de", "ate", "x", "y", "w", "h", "rot", "raio", "sombra", "entra", "sai")}
+        if c["tipo"] == "video":
+            camadas.append(dict(base, tipo="video", trechos=c["trechos"]))
+            if c.get("audio") is not None:
+                for s in c["trechos"]:
+                    sons.append({"arquivo": s["arquivo"], "src": s["src"], "de": s["de"], "ate": s["ate"],
+                                 "ganho": float(c["audio"])})
+        elif c["tipo"] == "imagem":
+            camadas.append(dict(base, tipo="imagem", arquivo=c["arquivo"]))
+        else:   # faixa e html: o PNG de tela cheia recortado na parte desenhada
+            camadas.append(dict(base, tipo="imagem", arquivo=str(render / nomes_cam[c["id"]]), cheia=True,
+                                x=0, y=0, w=None, h=None, raio=0))
+    divs = [{"id": d["id"], "de": d["de"], "ate": d["ate"], "corte": d["corte"], "laterais": d["laterais"],
+             "pessoa": d["pessoa"]} for d in M.divididas]
+    for d in M.ins:   # o gancho em tela dividida do formato antigo vira uma dividida do motor
+        if d["tipo"] == "dividida":
+            divs.append({"id": f"insercao-{d['n']}", "de": d["de"], "ate": d["ate"], "corte": 960, "laterais": "preto",
+                         "pessoa": [{"de": d["de"], "recorte_y": int(d.get("recorte_y", 320)), "escala": 1.0}]})
+    return {
+        "video": str(video), "saida": str(saida), "dados": str(pasta / ".dados"), "fps": info["fps"], "fps_txt": FPS_TXT,
+        "quadros": n_quadros, "trabalhadores": trab, "audio_codec": info["audio"], **codificador(),
+        "divididas": divs, "camadas": camadas,
+        "cartoes": [{"png": str(render / nome), "de": t0, "ate": t1} for _, nome, t0, t1 in pares],
+        "legendas": [{"png": str(render / n), "de": x[0], "ate": x[1]} for x, n in zip(leg, nl)],
+        "mascaras": masc, "audio": sons,
+    }
+
+
+# ---------------------------------------------------------------- conferência
+
+def quadros(saida, pasta, ins, leg, dur, cams=(), divs=()):
+    """Quadros do resultado para conferir: cada estado de cartão, cada camada, a dividida e legendas com destaque,
+    acento ou a mais longa."""
     q = pasta / "quadros"
     q.mkdir(exist_ok=True)
     for f in q.glob("*.jpg"):  # quadros da rodada anterior
@@ -406,6 +650,17 @@ def quadros(saida, pasta, ins, leg, dur):
     for d in ins:
         for t0, t1, e in estados(d):
             alvo.append((min(t1 - 0.1, t0 + 0.4), f"insercao{d['n']:02d}-{e}"))
+    for d in divs:
+        alvo.append((d["de"] + min(0.5, (d["ate"] - d["de"]) / 2), f"dividida-{d['id']}"))
+    grupos = []                                        # mosaico que entra aos poucos: um quadro pelo grupo
+    for c in sorted((c for c in cams if c["lugar"] != "topo"), key=lambda c: c["de"]):
+        if grupos and c["de"] < grupos[-1][1] and c["lugar"] == grupos[-1][2]["lugar"]:
+            grupos[-1][1] = max(grupos[-1][1], c["ate"])
+            grupos[-1][3] = c["de"]
+        else:
+            grupos.append([c["de"], c["ate"], c, c["de"]])
+    for de, ate, c, ultimo in grupos:
+        alvo.append((min(ate - 0.15, max(de + 0.4, ultimo + 0.4)), f"camada-{c['id']}"))
     leg = [x[:3] for x in leg]
     longa = max(leg, key=lambda x: len(" ".join(w for w, _ in x[2])), default=None)
     escolhidas = [x for x in leg if any(d for _, d in x[2])][:3]
@@ -433,10 +688,65 @@ def quadros(saida, pasta, ins, leg, dur):
     return feitos
 
 
+def geometria(M, leg, nl, pares, medidas, nomes_cam, dur):
+    from compor import caixa_girada
+    itens = []
+    for k, (x, n) in enumerate(zip(leg, nl), 1):
+        a, b, ws, y, _ = x
+        cx = (medidas.get(n) or {}).get("caixa")
+        itens.append({"id": f"leg-{k:04d}", "tipo": "legenda", "texto": " ".join(w for w, _ in ws),
+                      "destaque": any(d for _, d in ws), "de": round(a, 3), "ate": round(b, 3), "caixa": cx})
+    for (d, e), nome, t0, t1 in pares:
+        itens.append({"id": f"insercao-{d['n']}" + (f"-{e}" if len(estados(d)) > 1 else ""), "tipo": d["tipo"],
+                      "lugar": "cartao", "de": round(t0, 3), "ate": round(t1, 3),
+                      "caixa": (medidas.get(nome) or {}).get("caixa"), **({"aceito": d["aceito"]} if d.get("aceito") else {})})
+    for c in M.camadas:
+        if c["tipo"] in ("faixa", "html"):
+            cx = (medidas.get(nomes_cam[c["id"]]) or {}).get("caixa")
+        elif c["lugar"] == "topo":
+            corte = next((d["corte"] for d in M.divididas if d["de"] <= c["de"] + 0.01 < d["ate"]), 960)
+            cx = [0, 0, 1080, corte]
+        elif c["tipo"] == "video" or c.get("w"):
+            b = caixa_girada(c["x"], c["y"], c["w"], c["h"], c.get("rot") or 0)
+            cx = [round(b[0]), round(b[1]), round(b[2] - b[0]), round(b[3] - b[1])]
+        else:
+            cx = None
+        itens.append({"id": c["id"], "tipo": c["tipo"], "lugar": c["lugar"], "de": round(c["de"], 3),
+                      "ate": round(c["ate"], 3), "caixa": cx, **({"aceito": c["aceito"]} if c.get("aceito") else {})})
+    for d in M.divididas:
+        itens.append({"id": d["id"], "tipo": "dividida", "de": round(d["de"], 3), "ate": round(d["ate"], 3),
+                      "corte": d["corte"]})
+    return {"duracao": round(dur, 3), "quadro": [1080, 1920], "zona_segura": M.estilo["zona_segura"], "itens": itens}
+
+
+def zona(M, geo, leg):
+    """ATENÇÃO para texto ou peça da frente fora da zona segura (padrão: y de 260 a 1600)."""
+    z = M.estilo["zona_segura"]
+    lugar = {c["id"]: c["lugar"] for c in M.camadas}
+    out, leg_fora = [], {}
+    for it, x in zip([i for i in geo["itens"] if i["tipo"] == "legenda"], leg):
+        if fora_da_zona(it["caixa"], z) and not x[4]:
+            leg_fora.setdefault(x[3], []).append(it)
+    for y, its in leg_fora.items():
+        out.append(f"a legenda em y {y} sai da zona segura ({z[0]}–{z[1]}) em {len(its)} pedaço(s), "
+                   f"a partir de {fmt_tempo(its[0]['de'])} («{its[0]['texto']}»). Mude legenda_y, destaque_y ou a faixa.")
+    for it in geo["itens"]:
+        if it["tipo"] in ("legenda", "dividida") or not it.get("caixa"):
+            continue
+        if lugar.get(it["id"]) in ("atras", "topo") or it.get("aceito"):
+            continue
+        if fora_da_zona(it["caixa"], z):
+            cx = it["caixa"]
+            out.append(f"{it['id']} ({fmt_tempo(it['de'])}) vai de y {cx[1]} a {cx[1] + cx[3]}, fora da zona segura "
+                       f"({z[0]}–{z[1]}): os botões e o nome do perfil cobrem. Mude a posição ou escreva "
+                       "\"aceito\": \"<motivo>\" nele.")
+    return out
+
+
 # ---------------------------------------------------------------- principal
 
 def main():
-    global VAZIO
+    global VAZIO, FPS_TXT
     utf8()
     ap = argparse.ArgumentParser(description="Inserções e legenda gravadas no vídeo.")
     ap.add_argument("decupagem")
@@ -445,10 +755,13 @@ def main():
     ap.add_argument("--saida")
     ap.add_argument("--cartoes", action="store_true")
     ap.add_argument("--sem-legenda", action="store_true")
+    ap.add_argument("--mascara", default="auto", choices=["auto", "vision", "rvm"])
+    ap.add_argument("--trabalhadores", type=int)
     a = ap.parse_args()
     checar_ffmpeg()
     t_ini = time.time()
     dec = Path(a.decupagem).expanduser().resolve()
+    pasta_video = Path(os.path.normpath(Path(a.decupagem).expanduser().absolute())).parent
     pasta = Path(a.pasta).expanduser().resolve() if a.pasta else dec.parent / "insercoes"
     pasta.mkdir(parents=True, exist_ok=True)
     video = Path(a.video).expanduser().resolve() if a.video else next(
@@ -456,64 +769,107 @@ def main():
     if not video or not video.exists():
         sair("Não achei o vídeo cortado (final.mp4 ou previa.mp4 na decupagem). Passe --video.")
     info = info_video(video)
-    estilo, destaques, correcoes, ins = ler_mapa(pasta)
-    srt = dec / "legenda.srt"
-    if not a.sem_legenda and not srt.exists():
-        sair(f"Falta a legenda: {srt}. Rode a /decupar antes.")
-    leg = [] if a.sem_legenda else montar_legendas(srt, estilo, destaques, correcoes)
-    leg = posicionar(leg, ins, estilo)
+    r = rodar(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries", "stream=r_frame_rate", "-of", "csv=p=0", video])
+    FPS_TXT = r.stdout.strip().split(",")[0] or "30/1"
+    marca = achar_marca(pasta_video)
+    print(f"Marca: {marca if marca else 'nenhuma'}")
+    M = ler_mapa(pasta, dec, marca, pasta_video)
+    estilo = M.estilo
+    motor = bool(M.divididas or M.camadas)
 
-    for arq, txt in zip((estilo["fonte"], estilo["fonte_destaque"]), textos(ins, leg, estilo)):
+    pal = dec / "palavras-corte.json"
+    srt = dec / "legenda.srt"
+    if a.sem_legenda:
+        leg = []
+    elif pal.exists():
+        leg = L.de_palavras(pal, estilo, M.destaques, M.correcoes, info["dur"])
+    elif srt.exists():
+        leg = L.de_srt(srt, estilo, M.destaques, M.correcoes)
+    else:
+        sair(f"Falta a legenda: {pal.name} ou {srt.name} na decupagem. Rode a /decupar antes.")
+    leg = L.posicionar(leg, M.faixas, estilo)
+
+    atencao = []
+    for arq, txt in zip((estilo["fonte"], estilo["fonte_destaque"]), textos(M.ins, leg, estilo)):
         if arq:
             falta = faltam_glifos(arq, txt)
             if falta:
-                print(f"ATENÇÃO: a fonte {Path(arq).name} não tem {' '.join(falta)}: essas letras sairiam em outra fonte. "
-                      "Troque a fonte ou o texto.")
+                atencao.append(f"a fonte {Path(arq).name} não tem {' '.join(falta)}: essas letras sairiam em outra "
+                               "fonte. Troque a fonte ou o texto.")
     if not estilo["fonte"]:
         print("Sem arquivo de fonte no estilo: usando a fonte do sistema (Helvetica no Mac, Segoe no Windows).")
-    for av in conferir(ins, estilo, info["dur"]):
+    for av in conferir(M, info["dur"]):
         print("Aviso:", av)
 
     render = pasta / ".render"
-    nomes, medidas = desenhar(render, estilo, leg, ins)
+    nomes, medidas = desenhar(render, estilo, leg, M.ins, M.camadas)
     VAZIO = nomes[0]
     nl = nomes[1:1 + len(leg)]
-    nc = nomes[1 + len(leg):]
-    pares, k = [], 0
-    for d in ins:
+    k = 1 + len(leg)
+    pares = []
+    for d in M.ins:
         for t0, t1, e in estados(d):
-            pares.append(((d, e), nc[k], t0, t1))
+            pares.append(((d, e), nomes[k], t0, t1))
             k += 1
+    nomes_cam = {c["id"]: nomes[k + j] for j, c in enumerate([c for c in M.camadas if c["tipo"] in ("faixa", "html")])}
     for (d, e), nome, *_ in pares:
         m = medidas.get(nome)
         if m and m.get("transborda"):
             print(f"Aviso: o cartão {d['n']} ({d['tipo']}) não coube na área: encurte o texto ou tire um item.")
-    folha_cartoes(pasta, render, ins, [(x[0], x[1]) for x in pares]) if pares else None
+    celulas = [(f"{d['n']} · {fmt_tempo(d['de'])} · {d['tipo']}" + (f" ({e})" if d["tipo"] in ("lista", "etapas", "comparacao") else ""), n)
+               for (d, e), n, *_ in pares]
+    celulas += [(f"{c['id']} · {fmt_tempo(c['de'])} · {c['tipo']}", nomes_cam[c["id"]]) for c in M.camadas if c["id"] in nomes_cam]
+    if celulas:
+        folha_cartoes(pasta, render, celulas)
     (pasta / "legenda-curta.srt").write_text("\n".join(
         f"{i + 1}\n{srt_tempo(x[0])} --> {srt_tempo(x[1])}\n{' '.join(w for w, _ in x[2])}\n" for i, x in enumerate(leg)),
         encoding="utf-8")
-    print(f"Vídeo: {fmt_tempo(info['dur'])} · {info['w']}×{info['h']} · {len(ins)} inserções · {len(leg)} legendas "
-          f"(2 a {estilo['palavras_max']} palavras)")
+    geo = geometria(M, leg, nl, pares, medidas, nomes_cam, info["dur"])
+    (pasta / ".dados").mkdir(exist_ok=True)
+    (pasta / ".dados" / "geometria.json").write_text(json.dumps(geo, ensure_ascii=False, indent=1), encoding="utf-8")
+    atencao += zona(M, geo, leg)
+    faixa_pal = f"1 a {estilo['palavras_max']}" if estilo["palavras_max"] > 1 else "1"
+    print(f"Vídeo: {fmt_tempo(info['dur'])} · {info['w']}×{info['h']} · {len(M.ins)} inserções · {len(M.camadas)} camadas · "
+          f"{len(M.divididas)} divididas · {len(leg)} legendas ({faixa_pal} palavra{'s' if estilo['palavras_max'] > 1 else ''}"
+          f", de {'palavras-corte.json' if pal.exists() and not a.sem_legenda else 'legenda.srt'})")
+    for x in atencao:
+        print("ATENÇÃO:", x)
     if a.cartoes:
-        print(f"Cartões para conferir: {pasta / 'cartoes.png'}")
-        return
+        if celulas:
+            print(f"Cartões e peças para conferir: {pasta / 'cartoes.png'}")
+        sys.exit(2 if atencao else 0)
+    if atencao:
+        print("O vídeo não foi gravado: corrija o que está em ATENÇÃO no insercoes.json e rode de novo.")
+        sys.exit(2)
 
-    faixas = []
-    if pares:
-        faixas.append(trilha(render, "insercoes.ffconcat", [(t0, t1, n) for _, n, t0, t1 in pares], info["dur"], info["fps"]))
-    if leg:
-        faixas.append(trilha(render, "legenda.ffconcat", [(x[0], x[1], n) for x, n in zip(leg, nl)], info["dur"], info["fps"]))
     saida = Path(a.saida).expanduser().resolve() if a.saida else pasta / f"{video.stem}-insercoes.mp4"
     saida.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Montando o vídeo (no Mac com chip M, uns 20 s por minuto de vídeo)...", flush=True)
-    divididas = [(d["de"], d["ate"], int(d.get("recorte_y", info["h"] // 6))) for d in ins if d["tipo"] == "dividida"]
-    compor(str(video), info, [str(f) for f in faixas], str(saida), divididas)
+    t_render = time.time()
+    if not motor:
+        faixas = []
+        if pares:
+            faixas.append(trilha(render, "insercoes.ffconcat", [(t0, t1, n) for _, n, t0, t1 in pares], info["dur"], info["fps"]))
+        if leg:
+            faixas.append(trilha(render, "legenda.ffconcat", [(x[0], x[1], n) for x, n in zip(leg, nl)], info["dur"], info["fps"]))
+        print(f"Montando o vídeo (no Mac com chip M, uns 20 s por minuto de vídeo)...", flush=True)
+        divididas = [(d["de"], d["ate"], int(d.get("recorte_y", info["h"] // 6))) for d in M.ins if d["tipo"] == "dividida"]
+        compor_ffmpeg(str(video), info, [str(f) for f in faixas], str(saida), divididas)
+    else:
+        import compor
+        n_q = contar_quadros(video) or int(round(info["dur"] * info["fps"]))
+        masc = mascaras(video, pasta, M, info["fps"], n_q, a.mascara)
+        t_render = time.time()
+        print(f"Montando o vídeo com camadas (no Mac com chip M, mais ou menos o tempo do vídeo)...", flush=True)
+        P = plano_compor(M, video, info, n_q, saida, pasta, render, pares, leg, nl, nomes_cam, masc, a.trabalhadores)
+        compor.compor(P)
+    t_render = time.time() - t_render
     dur = info_video(saida)["dur"]
     ok = abs(dur - info["dur"]) < 0.2
-    fs = quadros(str(saida), pasta, ins, leg, dur)
+    fs = quadros(str(saida), pasta, M.ins, leg, dur, M.camadas, M.divididas)
     print(f"{saida}: {fmt_tempo(dur)}" + ("" if ok else f" · ATENÇÃO: o vídeo de entrada tem {fmt_tempo(info['dur'])}"))
     print(f"Quadros para conferir ({len(fs)}): {pasta / 'quadros'} · todos juntos em {pasta / 'quadros' / 'folha.jpg'}")
-    print(f"Pronto em {fmt_num(time.time() - t_ini)} s.")
+    print(f"Pronto em {fmt_num(time.time() - t_ini)} s (montagem: {fmt_num(t_render)} s, "
+          f"{fmt_num(info['dur'] / max(t_render, 1e-6), 2)}× o tempo real).")
 
 
 if __name__ == "__main__":
