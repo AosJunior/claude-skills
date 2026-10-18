@@ -1,22 +1,34 @@
 ---
 name: minha-edicao
-description: Receita de edição da pessoa, escrita como skill nova. Entrevista e cria uma skill para um formato de Reel (dica rápida, react, bastidor, antes e depois) ou para um estilo de edição (legenda, cortes, ritmo, letterings, cor, som, transições). Use quando a pessoa quiser criar ou ajustar uma skill do jeito dela de editar, ou pedir que os vídeos fiquem sempre de um jeito.
+description: Receita de edição da pessoa, escrita a partir dos Reels dela. Mede a referência e grava o estilo em marca/estilo.md (legenda, zoom, cor por LUT, letterings, tela dividida, trilha) ou uma skill de formato de Reel (blocos, gancho, composição das camadas) que encadeia /decupar, /inserir, /sonorizar e /criticar. Use quando a pessoa quiser criar ou ajustar o jeito dela de editar, ou pedir que os vídeos fiquem sempre de um jeito.
 ---
 
 # /minha-edicao
 
-Uma skill para cada formato de conteúdo e uma para cada estilo de edição: quem escreve a **receita** uma vez para de editar do zero. Esta skill entrevista a pessoa e escreve essa receita como skill nova. Dois tipos:
+Uma receita para cada formato de conteúdo e um estilo por marca: quem escreve a receita uma vez para de editar
+do zero. Esta skill mede os Reels que a pessoa já aprovou, pergunta só o que é decisão dela, mostra a receita
+aplicada no vídeo dela e grava. Dois tipos:
 
-- **Receita de formato**: o que o vídeo precisa ter (duração, gancho, estrutura, pedido do fim). Encadeia a `/decupar` (decupagem → corte → legenda) e acrescenta as regras do formato.
-- **Receita de estilo**: como o vídeo parece e soa (fonte, tamanho, cor, posição, palavras por vez, ritmo de corte, som) e como aplicar no CapCut ou no Premiere.
+- **Estilo**: como o vídeo parece e soa (fontes, legenda e destaque, zoom e ritmo, cor por LUT, letterings,
+  tela dividida, camadas, trilha e efeitos). Vai para `<pasta de edição>/marca/estilo.md`, a fonte única que
+  as 4 skills do kit leem.
+- **Formato**: o que um tipo de vídeo precisa ter (duração, gancho, blocos com segundos, pedido do fim) e a
+  **composição** de cada bloco (camadas, posições em px, âncoras na fala, densidade). É uma skill que encadeia
+  `/decupar` → `/inserir` → `/sonorizar` → `/criticar`.
 
-Quem usa é criador de conteúdo leigo, no Claude Code Desktop, Mac ou Windows.
+Quem usa é criador de conteúdo leigo, no Claude Code Desktop, Mac ou Windows. Os scripts ficam em
+`<pasta desta skill>/scripts/`.
 
 ## Como conversar
 
-- Fale como quem faz Reels. Termo técnico só com a tradução ao lado, na primeira vez: "pedido do fim (CTA)", "música que abaixa quando você fala". Quando o conteúdo dela também é receita (cozinha, confeitaria), chame a skill de "receita de edição".
-- **Fatos** são trabalho seu: medir, olhar, ler. **Decisões** são da pessoa. O que a referência já mostra vira afirmação para confirmar ("seu Reel de referência tem 31 s, a receita mira 30 s"), nunca pergunta.
-- Em cada rodada, pergunte toda a fronteira: tudo o que já dá para decidir sem chutar, no máximo 5 perguntas, todas numeradas e cada uma com a sua recomendação. A pessoa pode responder "ok" ou só os números que quer mudar.
+- Fale como quem faz Reels. Termo técnico só com a tradução ao lado, na primeira vez: "pedido do fim (CTA)",
+  "LUT (o filtro de cor dela, copiado)". Quando o conteúdo dela também é receita (cozinha), chame a skill de
+  "receita de edição".
+- **Fatos** são trabalho seu: medir, olhar, ler. **Decisões** são da pessoa. O que a medida responde vira
+  afirmação para confirmar ("seu Reel aprovado troca de plano a cada 2,4 s, com zoom de 1,12, 1,2 e 1,3"),
+  nunca pergunta.
+- Em cada rodada, pergunte toda a fronteira: tudo o que já dá para decidir sem chutar, no máximo 5 perguntas,
+  numeradas, cada uma com a sua recomendação. A pessoa pode responder "ok" ou só os números que quer mudar.
 - No máximo 3 rodadas. Uma pergunta que a mensagem da pessoa já respondeu sai da rodada.
 
 ```
@@ -28,67 +40,119 @@ Quem usa é criador de conteúdo leigo, no Claude Code Desktop, Mac ou Windows.
 
 ### 1. Rodada 1: o tipo e o material
 
-Antes de perguntar, confira em silêncio se o ffmpeg está instalado (`ffmpeg -version`) e qual é o sistema (Mac ou Windows). Depois pergunte:
+Antes de perguntar, em silêncio: `ffmpeg -version`, `uv --version`, o sistema (Mac ou Windows) e a **pasta de
+edição**: suba a partir da pasta aberta até achar `marca/estilo.md`. Achou: leia o estilo (pedido de estilo
+vira o caminho "Ajustar"; o formato novo usa esse estilo). Não achou: a pasta aberta vira a pasta de edição,
+com o layout do contrato do kit (`marca/` e `videos/`), e isso entra na confirmação da rodada 3.
 
-1. **Formato ou estilo**: "Quer uma receita de **formato** (um tipo de vídeo que você repete: dica rápida, react, bastidor, antes e depois, receita) ou de **estilo** (o jeito de editar: legenda, cortes e ritmo, letterings (frases grandes na tela), cor, som, transições)? Se for estilo, de qual parte?" Recomende formato para quem repete o mesmo tipo de vídeo toda semana; estilo para quem perde mais tempo deixando o vídeo com a sua cara.
-2. **Reel de referência**: "Tem um Reel que é o jeito que você quer? Mande o link ou arraste o arquivo aqui." Recomende mandar: você mede e a pessoa responde menos.
-3. **Vídeo seu já editado**: "Tem um vídeo seu já editado do jeito que você gosta? Arraste aqui." Recomende mandar, pelo mesmo motivo.
-4. **Onde você monta o vídeo**: CapCut no celular, CapCut no computador, Premiere ou outro editor. Se ela disser só "CapCut", pergunte celular ou computador. Recomende o computador, onde ela já está com o Claude: a legenda que o Claude faz entra direto no CapCut do computador e no Premiere; no CapCut do celular ela refaz a legenda à mão.
+Pergunte:
 
-Sem referência e sem vídeo, ofereça partir de um exemplo pronto desta skill (`exemplos/dica-rapida-30s/` para formato, `exemplos/legenda-limpa/` para estilo; `exemplos/estilo-ana/` mostra um estilo completo, com legenda, cartões, cor e som): ela só muda o que for diferente.
+1. **Estilo ou formato**: "Quer gravar o seu **estilo** (o jeito de todo vídeo seu: legenda, zoom, cor, letterings,
+   trilha) ou um **formato** (um tipo de vídeo que você repete: react com tela dividida, dica rápida, antes e
+   depois)?" Sem `marca/estilo.md`, recomende o estilo primeiro: o formato usa as fontes, a cor e o som dele.
+2. **Reels de referência**: "Mande 1 a 3 Reels que são o jeito que você quer (link ou arquivo)." Recomende
+   mandar: você mede e ela responde menos.
+3. **Vídeo seu aprovado**: "Tem um vídeo seu que saiu do jeito certo? Arraste aqui." Ele vale mais que a
+   referência quando os dois discordam.
+4. **Cor** (só estilo): "Para copiar a sua cor, preciso de um vídeo bruto seu e do mesmo vídeo exportado do seu
+   editor com o filtro que você usa." Recomende mandar: o LUT copia a cor exata (no Reel da Ana, a diferença
+   ficou em 1,43 contra 5,46 do ajuste feito no olho).
+5. **Onde o vídeo termina**: o kit entrega pronto (legenda gravada, cor, trilha, volume de publicação) ou ela
+   termina no CapCut ou no Premiere. Recomende o kit; quem termina no editor recebe os passos de
+   [editores.md](editores.md).
 
-Feito quando o tipo (e, no estilo, as partes) está decidido, o editor está definido e cada material foi recebido ou dispensado.
+Sem referência e sem vídeo, ofereça partir de um exemplo pronto: `exemplos/estilo-ana/` (estilo completo),
+`exemplos/legenda-limpa/` (só legenda), `exemplos/ana-gancho-dividido/` (formato com composição) ou
+`exemplos/dica-rapida-30s/` (formato enxuto). Ela só muda o que for diferente.
 
-### 2. Medir o material (só se veio referência ou vídeo)
+Feito quando o tipo está decidido, a pasta de edição está definida e cada material foi recebido ou dispensado.
 
-Siga [medir.md](medir.md): ele monta a **ficha** de cada vídeo. Mostre à pessoa o que você viu em até 6 linhas ("No Reel de referência: 31 s, troca de plano a cada 2,1 s, legenda de 3 palavras no terço de baixo, sem caixa de fundo..."). Se a referência e o vídeo dela discordam num ponto, esse ponto vira pergunta da rodada 2, com as duas medidas lado a lado.
+### 2. Medir o material
 
-Feito quando cada item da ficha tem um valor ou "não deu para ver". Só os "não deu para ver" e as discordâncias seguem como pergunta.
+Siga [medir.md](medir.md): ele começa conferindo qual Reel é qual pela folha e monta a **ficha** de cada vídeo.
+Mostre à pessoa o que você viu em até 8 linhas ("No seu Reel aprovado: 134 s, fala a 1,2×, troca de plano a
+cada 2,4 s com zoom de 1,12, 1,2 e 1,3; legenda de 1 palavra no peito; gancho em tela dividida até 13 s...").
+Se a referência e o vídeo dela discordam num ponto, vale o vídeo dela; a discordância só vira pergunta quando
+ela pediu explicitamente o jeito da referência.
 
-### 3. Rodada 2: as regras
+Feito quando cada linha da ficha tem um valor ou "não deu para ver".
 
-Pergunte só o que a ficha não respondeu. Em cada pergunta, a recomendação já traz a proposta completa, com números, para a pessoa só corrigir ("Proponho: fonte Inter Medium, branca, sombra leve, 2 a 4 palavras por vez. Muda alguma coisa?").
+### 3. Rodada 2: as decisões dela
+
+Pergunte só o que a medida não responde. Pergunta que a ficha responde sai. Em cada pergunta, a recomendação
+traz a proposta completa, com números, para ela só corrigir.
+
+**Estilo**
+1. **Origem padrão do gancho**: o que vai na metade de cima da tela dividida (vídeo de outro criador, cena
+   filmada que prova o assunto, o produto) ou se o gancho é em tela cheia.
+2. **Universo da trilha**: 3 faixas que definem o som dela (proponha as que o Shazam achou nos Reels dela).
+   As 3 viram a régua da `/sonorizar`: trilha nova só entra se couber nesse universo.
+3. **O que nunca pode**: o que a edição não faz nunca (ex.: cobrir o rosto, som de piada, legenda em
+   maiúsculas).
+4. Cada "não deu para ver" da ficha.
 
 **Formato**
-1. **Duração**: alvo e máximo.
-2. **Gancho**: o que acontece nos 3 primeiros segundos (frase falada, texto na tela, o resultado pronto primeiro).
-3. **Estrutura**: os blocos do vídeo, em ordem, com os segundos de cada um.
-4. **Pedido do fim (CTA)**: seguir, salvar, compartilhar ou comentar uma palavra, e a frase exata.
-5. **Legenda**: o visual da legenda mora numa receita de estilo, separada da de formato. Liste as receitas de estilo que encontrar em `~/.claude/skills/`. Sem nenhuma, e com a legenda dela medida, recomende criar junto a receita de estilo dessa legenda: as duas entram na confirmação da rodada 3 e são gravadas no passo 5. Sem medida, a legenda padrão da `/decupar` por enquanto.
-
-**Estilo**, por parte escolhida (junte numa pergunta só os itens de uma parte):
-- **Legenda**: fonte, tamanho (quanto da largura a frase ocupa), cor e destaque, posição, palavras por vez, letra maiúscula ou normal, contorno, fundo ou sombra.
-- **Cortes e ritmo**: pausa máxima que fica, erros e repetições, zoom no rosto (quando), troca de plano a cada quantos segundos.
-- **Letterings**: quando entram (frase de efeito, número, palavra-chave), quantos por vídeo, fonte e posição.
-- **Cor**: mais quente, mais fria, mais contraste, ou o filtro do editor e a intensidade.
-- **Som**: música (tipo e volume embaixo da voz), efeitos sonoros (em quais momentos), limpeza da voz.
-- **Transições**: corte seco, zoom ou deslizar, e onde.
+1. **Duração**: alvo e máximo (proponha a do vídeo aprovado).
+2. **Blocos**: a sequência medida, com segundos, para ela confirmar ou mudar a ordem.
+3. **Pedido do fim (CTA)**: seguir, salvar, compartilhar ou comentar, e a frase exata.
+4. **Origem do gancho**, se o estilo não fixou.
 
 Feito quando toda regra que a receita vai guardar tem um valor concreto: número, cor, nome de fonte, segundos.
 
-### 4. Rodada 3: confirmar
+### 4. Prova antes de gravar
 
-Mostre a receita em lista curta: nome proposto (regra em [receita.md](receita.md)), onde vai ser gravada, quando ela entra sozinha (em palavras simples: "ela entra quando você pedir para editar uma receita de 45 s") e as regras com os valores. Pergunte o que ainda estiver em aberto e "Posso gravar?".
+Com um vídeo dela em mãos, monte 1 quadro-teste por bloco (gancho, corpo com lettering, corpo com camada
+atrás dela, pedido do fim), com o vídeo dela e a receita aplicada, ao lado da referência no mesmo momento:
+escreva `marca/referencias/prova.json` (formato no topo do script) e rode
+
+```
+uv run "<pasta desta skill>/scripts/prova.py" "marca/referencias/prova.json"
+```
+
+Mostre `marca/referencias/prova/folha.png`. O que ela apontar volta como ajuste da regra e a prova é refeita
+uma vez. Sem nenhum vídeo dela, diga que a prova fica para o primeiro vídeo e siga.
+
+Feito quando ela aprovou a prova (ou a prova foi dispensada por falta de vídeo).
+
+### 5. Rodada 3: confirmar
+
+Mostre a receita em lista curta: onde vai ser gravada (o arquivo e a pasta de edição), quando entra (em
+palavras simples: "toda skill do kit lê esse estilo quando o vídeo está dentro desta pasta"; "ela entra quando
+você pedir para editar um react"), as regras com os valores e os arquivos que vão para `marca/` (fontes, LUT,
+referências). Pergunte o que ainda estiver em aberto e "Posso gravar?".
 
 Feito quando a pessoa disse sim.
 
-### 5. Escrever a receita
+### 6. Escrever a receita
 
-Siga [receita.md](receita.md) (nome, description, seções de cada tipo, bloco de melhoria). Grave em `~/.claude/skills/<nome>/SKILL.md`. Se a pessoa usa CapCut ou Premiere, a parte "como aplicar" vem de [editores.md](editores.md).
+Siga [receita.md](receita.md) (lugar, seções de cada tipo, composição, bloco de melhoria):
 
-Feito quando o arquivo existe, o `name` é igual ao nome da pasta, todo valor decidido nas rodadas está nele e nenhuma decisão ficou para preencher depois (marcador do que muda a cada vídeo, como `<NOME DA RECEITA>`, fica). Leia o arquivo uma vez para conferir.
+- **Estilo**: `<pasta de edição>/marca/estilo.md`, e os arquivos que ele cita em `marca/fontes/`, `marca/cor/`,
+  `marca/referencias/` e `marca/letterings/`. Copie as fontes e o LUT para lá; o original dela não sai do lugar.
+- **Formato**: `<pasta de edição>/.claude/skills/<nome>/SKILL.md`; sem pasta de edição,
+  `~/.claude/skills/<nome>/SKILL.md`.
 
-### 6. Mostrar e ensinar
+Feito quando o arquivo existe, todo caminho com `marca/` que ele cita existe, todo valor decidido nas rodadas
+está nele e nenhuma decisão ficou para preencher depois (marcador do que muda a cada vídeo, como
+`<TEXTO DA HEADLINE>`, fica). No formato, o `name` é igual ao nome da pasta. Leia o arquivo uma vez para
+conferir.
+
+### 7. Mostrar e ensinar
 
 Resuma em 5 linhas:
-1. Nome da receita e onde ela está.
-2. Quando ela entra sozinha.
+1. O que foi gravado e onde.
+2. Quando entra sozinho.
 3. As 3 regras que mais mudam o vídeo.
-4. Como usar: "digite `/<nome>` e arraste o vídeo, ou diga 'edita esse vídeo como <nome>'".
+4. Como usar: estilo, "abra o Claude Code na pasta de edição, ponha o vídeo em `videos/<data>-<assunto>/` e
+   peça `/decupar`"; formato, "digite `/<nome>` e arraste o vídeo".
 5. Como melhorar: "Depois de cada vídeo, me diga o que você corrigiu na mão, e eu atualizo a receita."
 
-Se o `/<nome>` não aparecer quando ela digitar, peça para rodar `/reload-skills` ou abrir uma conversa nova. Ofereça, em uma linha, criar a outra metade do par (a de estilo para quem fez formato, e o contrário).
+Se o `/<nome>` não aparecer, peça para rodar `/reload-skills` ou abrir uma conversa nova na pasta de edição.
+Ofereça, em uma linha, criar a outra metade (o formato para quem fez o estilo, e o contrário).
 
 ## Ajustar uma receita que já existe
 
-Quando a pessoa pede para mudar uma receita dela: leia o `SKILL.md`, mostre a regra atual, pergunte só o que muda (uma rodada) e aplique o bloco "Melhorar esta receita" da própria receita: a regra nova substitui a antiga e o histórico ganha uma linha.
+Quando a pessoa pede para mudar uma receita dela: leia o `marca/estilo.md` ou o `SKILL.md` do formato, mostre a
+regra atual, pergunte só o que muda (uma rodada), faça a prova do bloco afetado quando a mudança é visual e
+aplique o bloco "Melhorar esta receita" da própria receita: a regra nova substitui a antiga e o histórico ganha
+uma linha.
