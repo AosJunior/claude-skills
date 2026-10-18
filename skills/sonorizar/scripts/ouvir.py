@@ -63,6 +63,19 @@ def palavras(txt):
     return [FALADO.get(w, w) for w in re.findall(r"[a-z0-9]+", t)]
 
 
+def juntar(ws, outras):
+    """Junta duas palavras seguidas quando a outra transcrição tem a palavra emendada ("tik tok" = "tiktok")."""
+    out, i = [], 0
+    while i < len(ws):
+        if i + 1 < len(ws) and ws[i] + ws[i + 1] in outras:
+            out.append(ws[i] + ws[i + 1])
+            i += 2
+        else:
+            out.append(ws[i])
+            i += 1
+    return out
+
+
 def escutar(video, de, ate, pasta, qual):
     wav = Path(pasta) / f"{Path(video).stem}.wav"
     ff(["-ss", f"{de:.3f}", "-t", f"{ate - de:.3f}", "-i", str(video), "-map", "0:a:0", "-ac", "1", "-ar", "16000",
@@ -89,7 +102,8 @@ def main():
         wav_dir.mkdir()
         sem = escutar(base, de, ate, wav_dir, qual)
     print(f"Sem trilha:                 {sem}")
-    ref, ouv = Counter(palavras(sem)), Counter(palavras(com))
+    ps, pc = palavras(sem), palavras(com)
+    ref, ouv = Counter(juntar(ps, set(pc))), Counter(juntar(pc, set(ps)))
     total = sum(ref.values())
     if not total:
         sair("Nesse pedaço não tem fala. Escolha um trecho em que a pessoa fala.")
