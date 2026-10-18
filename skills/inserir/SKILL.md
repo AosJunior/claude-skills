@@ -1,128 +1,137 @@
 ---
 name: inserir
-description: Inserções e legenda gravadas no vídeo de Reels, depois da /decupar. Lê a fala, propõe onde entra cada cartão (lista, número grande, comparação, passo a passo, print real da marca citada), desenha os cartões e a legenda de 2 a 4 palavras no estilo da pessoa e entrega o vídeo pronto. Use quando a pessoa mandar /inserir ou pedir inserções, cartões, grafismos ou legenda na imagem de um vídeo já decupado.
+description: Inserções e legenda gravadas no vídeo de Reels, depois da /decupar. Lê a fala, propõe onde entra cada peça (cartão, número grande, print real da marca citada, vídeo atrás da pessoa, tela dividida no gancho), desenha tudo e a legenda de 1 a 4 palavras no estilo da pessoa e entrega o vídeo pronto. Use quando a pessoa mandar /inserir ou pedir inserções, cartões, grafismos, letterings ou legenda na imagem de um vídeo já decupado.
 ---
 
 # /inserir
 
-A pessoa traz a pasta `decupagem/` que a `/decupar` gerou (vídeo cortado, `legenda.srt`, transcrição).
-Você lê a fala, propõe onde entra cada inserção, confirma uma vez e entrega o vídeo com os cartões e a
-legenda gravados na imagem. Quem usa é leigo, no Claude Desktop, no Mac ou no Windows. Tudo em português.
-Se ela trouxer só o vídeo bruto, diga que primeiro vem a `/decupar` (corta e gera a legenda) e pare.
+A pessoa traz a pasta `decupagem/` que a `/decupar` gerou (vídeo cortado, `palavras-corte.json`,
+`legenda.srt`, `transcricao.txt`). Você lê a fala, propõe onde entra cada peça, confirma uma vez e entrega
+o vídeo com tudo gravado na imagem, num render só. Quem usa é leigo, no Claude Desktop, no Mac ou no
+Windows. Tudo em português. Se ela trouxer só o vídeo bruto, diga que primeiro vem a `/decupar` e pare.
 
-O vídeo cortado só é lido: todo arquivo novo nasce em `<pasta do vídeo>/insercoes/` (a pasta irmã da
-`decupagem/`). Os scripts ficam em `<pasta desta skill>/scripts/` e o desenho dos cartões em
-`<pasta desta skill>/modelos/cartao.html`.
+O vídeo cortado só é lido: todo arquivo novo nasce em `<pasta do vídeo>/insercoes/`. Os scripts ficam em
+`<pasta desta skill>/scripts/`. O formato completo do `insercoes.json` está em
+[referencia.md](referencia.md); leia antes de escrever o mapa. No Windows, leia também [windows.md](windows.md).
+O contrato entre as skills do kit (pastas, âncoras, saídas) é o `docs/edicao-contrato.md` do repositório.
 
 ## Conversa
 
-Frases curtas, sem termo técnico: "cartão", "número grande", "print do site", "legenda na imagem".
-Nunca peça para a pessoa abrir terminal, editar JSON ou rodar comando: isso é trabalho seu. Antes de cada
-etapa que demora, diga quanto tempo leva:
+Frases curtas, sem termo técnico: "cartão", "número grande", "vídeo atrás de você", "legenda na imagem".
+A pessoa nunca abre terminal, edita JSON ou roda comando: isso é trabalho seu. Antes de cada etapa que
+demora, diga quanto tempo leva:
 
 | Etapa | Mac com chip M | Windows ou Mac Intel |
 |---|---|---|
-| Primeira vez: baixa o navegador que desenha os cartões (uns 200 MB, só uma vez por computador) | 1 a 3 min | 2 a 5 min |
-| Cartões para conferir | uns 10 s | 20 a 40 s |
-| Vídeo final | uns 20 s por minuto de vídeo | 1 a 2 min por minuto |
+| Primeira vez: baixa o navegador que desenha (uns 200 MB, uma vez por computador) | 1 a 3 min | 2 a 5 min |
+| Desenhar legenda e peças (`--cartoes`) | 10 a 30 s (depois, só o que mudou) | 30 s a 1 min |
+| Máscara da pessoa (só com vídeo atrás dela; fica guardada) | uns 8 s por segundo de trecho | uns 10 s por segundo de trecho |
+| Vídeo final só com cartões e legenda | uns 20 s por minuto de vídeo | 1 a 2 min por minuto |
+| Vídeo final com camadas ou tela dividida | uns 25 s por minuto de vídeo | 2 a 4 min por minuto |
 
 A única pergunta do fluxo é a confirmação do mapa (passo 3). O resto você executa.
 
-## Pasta de edição
-
-Antes de tudo, procure `marca/estilo.md` na pasta do vídeo e subindo até 3 pastas acima dela. Se achar,
-ele manda: siga o estilo de lá (fontes, cor, padrão de gancho e de inserções) e use as fontes de
-`marca/fontes/` no bloco `estilo` do `insercoes.json`. Diga em uma linha que achou e que vai seguir.
-Sem `marca/estilo.md`, siga o passo 1 como está.
-
 ## 0. Conferir o ambiente
 
-`ffmpeg -version` e `uv --version`. Se faltar um, diga em uma linha o que falta e ofereça instalar;
-instale só depois do sim (Mac: `brew install ffmpeg uv`; Windows: seção [Windows](#windows)).
-Pronto quando os dois respondem com a versão.
+`ffmpeg -version` e `uv --version`. Se faltar um, diga em uma linha o que falta e ofereça instalar; instale
+só depois do sim (Mac: `brew install ffmpeg uv`; Windows: [windows.md](windows.md)). Pronto quando os dois
+respondem com a versão. Vídeo atrás da pessoa usa o Apple Vision no Mac com chip M (precisa das Command
+Line Tools: `xcode-select --install`); sem elas, o script cai sozinho num recorte que roda em qualquer
+computador e avisa em uma linha.
 
-## 1. Ler a fala e o estilo
+## 1. Ler a fala, a marca e o estilo
 
-- Leia a `legenda.srt` inteira (o tempo dela já é o do vídeo cortado) e a seção "Onde cabe imagem ou
-  grafismo" da `decupagem.md`, se existir.
-- **Estilo**: se a pasta de edição tem `marca/estilo.md`, o estilo sai dele. Senão, procure na pasta de skills da pessoa (`~/.claude/skills/`; no Windows,
-  `%USERPROFILE%\.claude\skills\`) uma receita de estilo feita com a `/minha-edicao` que fale de
-  legenda ou letterings. Dela saem fonte, fonte de destaque, tamanho, cor e posição, que vão para o
-  bloco `estilo` do `insercoes.json`. Sem receita, fique com o padrão do script (fonte do sistema, que
-  tem acentuação completa) e diga isso em uma linha.
-- **Fonte** é um arquivo `.otf` ou `.ttf` no computador. Fonte que só existe dentro do CapCut ou do Canva
-  não é arquivo: peça o arquivo à pessoa ("arrasta aqui o arquivo da fonte") ou fique com a do sistema.
-  No Mac, as fontes instaladas ficam em `~/Library/Fonts/` ou `/Library/Fonts/`; no Windows, em
-  `C:\Windows\Fonts\` ou `%LOCALAPPDATA%\Microsoft\Windows\Fonts\`.
-- Olhe 3 ou 4 quadros do vídeo cortado (`ffmpeg -ss <s> -i <vídeo> -frames:v 1 -vf scale=540:-2 q.jpg`)
-  para ver onde fica a cabeça. Plano aberto, com a cabeça abaixo de uns 700 px (no quadro de 1920),
-  pede **painel** no alto da tela: o rosto e o que ela mostra continuam à vista. Close pede **tela cheia**.
+- **Marca**: todo script imprime `Marca: <pasta>` ou `Marca: nenhuma`. Com marca, leia o `marca/estilo.md`
+  inteiro: ele manda em fontes, legenda, cor, composição e réguas. Caminho que começa com `marca/` no JSON
+  vale contra essa pasta. Sem marca, procure em `~/.claude/skills/` uma receita feita com a `/minha-edicao`
+  que fale de legenda ou letterings; sem receita, fique com o padrão do script e diga isso em uma linha.
+- **Fala**: leia a `decupagem/transcricao.txt` (cada frase tem um id `F<n>`) e o `palavras-corte.json`
+  (o que ficou no corte, com o tempo de cada palavra). Escreva os tempos do mapa como **âncoras na fala**
+  (`"F15:repente"`, `"F17:fim+0.1"`; formas em [referencia.md](referencia.md#âncoras)): elas sobrevivem a
+  um novo corte. Leia também a seção "Onde cabe imagem ou grafismo" da `decupagem.md`, se existir.
+- **Fonte** é um arquivo `.otf` ou `.ttf`. Fonte que só existe no CapCut ou no Canva não é arquivo: peça o
+  arquivo ("arrasta aqui o arquivo da fonte") ou fique com a do sistema.
+- Olhe 3 ou 4 quadros do vídeo (`ffmpeg -ss <s> -i <vídeo> -frames:v 1 -vf scale=540:-2 q.jpg`) para ver
+  onde fica a cabeça: é ela que decide onde cabe peça sem cobrir o rosto.
 
 Pronto quando você sabe o tempo de cada frase, o estilo e a posição do rosto.
 
 ## 2. Mapa de inserções (você julga)
 
-Uma inserção entra quando a fala pede imagem. A **forma da fala** decide o tipo:
+Uma peça entra quando a fala pede imagem. A **forma da fala** decide a peça:
 
-| A fala tem | Tipo | Como aparece |
-|---|---|---|
-| lista ("três erros", "primeiro... segundo...") | `lista` | os itens entram um a um, cada um no tempo em que é dito |
-| número ("100 mil", "R$ 18 milhões") | `numero` | o número grande e uma linha do que ele é |
-| comparação (antes e hoje, isto e aquilo) | `comparacao` | dois lados; o segundo entra quando a fala chega nele |
-| passo a passo | `etapas` | etapas numeradas que entram uma a uma |
-| marca, site ou app citado | `print` | print real da página, tirado com `print.py` |
-| conceito com nome ("conformidade social") | `frase` | o nome em letra grande |
-| gancho (a pergunta ou a frase que abre o vídeo) | `dividida` | imagem real da internet na metade de cima, com a frase numa faixa branca; a pessoa desce para a metade de baixo |
-| conceito ou número, no estilo colagem | `titulo` | a frase em letra serifada no alto da tela, sem caixa, com o rosto à vista |
-| marca, objeto ou produto citado | `colagem` com recortes | o produto sem fundo, solto em volta da cabeça, entrando no tempo em que é dito |
-| notícia ou site citado | `colagem` com estilo `"noticia"` | o print em papel branco, inclinado, solto sobre o vídeo |
-| antes × hoje | `colagem` com duas fotos com rótulo | uma foto de cada lado, cada uma com o seu rótulo ("antes", "hoje"), a segunda entra quando a fala chega nela |
+| A fala tem | Peça |
+|---|---|
+| lista, passo a passo, comparação | cartão `lista`, `etapas`, `comparacao` (itens entram no tempo em que são ditos) |
+| número ("100 mil", "R$ 18 milhões") | cartão `numero` ou camada `html` com o lettering da marca |
+| conceito com nome ("conformidade social") | cartão `frase` ou camada `html` |
+| marca, site ou app citado | cartão `print` (print real, com `print.py`) |
+| "isso aqui apareceu em todo lugar", gente usando o produto | camadas `video` com `lugar: "atras"`: vídeos reais em volta da cabeça, atrás da pessoa |
+| gancho com uma cena ("placa de aluga-se") | `divididas` + camada `video` no `topo` + camada `faixa` com a pergunta |
 
-Os tipos `titulo`, `colagem` e `dividida` são o estilo colagem: peças soltas por cima do vídeo, sem
-cartão. Use quando o `marca/estilo.md` pedir; sem ele, os cartões de cima continuam valendo.
+Cartões (`insercoes`) cobrem a tela ou um painel; camadas (`camadas`) são peças soltas que entram com pop.
+Use o que o `marca/estilo.md` pede; sem ele, cartões. Exemplo curto de camadas (formato completo na
+[referencia.md](referencia.md#camadas)):
 
-- **Imagem vem da internet**: a foto do gancho, o recorte do produto e o print da notícia são imagens reais
-  (Wikimedia Commons, site da marca, print da notícia). Salve em `brutos/imagens/` e anote a origem de cada
-  uma (endereço e licença) em `brutos/fontes.md`. Sem origem anotada, a imagem não entra.
+```json
+"divididas": [{"id": "gancho", "de": 0, "ate": "F7:fim", "corte": 960,
+               "pessoa": [{"de": 0, "recorte_y": 150, "escala": 0.72}, {"de": "F3", "recorte_y": 450}]}],
+"camadas": [
+  {"id": "placa", "tipo": "video", "arquivo": "../brutos/videos/aluga-se.mp4", "src": 22.0, "de": 0, "ate": "F7:fim",
+   "lugar": "topo", "recorte": [{"t": 0, "caixa": [21, 347, 699, 932]}, {"t": 1.0, "caixa": [105, 347, 495, 660]}]},
+  {"id": "headline", "tipo": "faixa", "texto": "Ter loja virou coisa de pobre?", "de": 0, "ate": "F1:fim+0.25",
+   "y": 908, "fonte": "marca/fontes/NeueMontreal-Bold.otf"},
+  {"id": "feed-1", "tipo": "video", "arquivo": "../brutos/videos/review-1.mp4", "src": 114, "de": "F15:repente",
+   "ate": "F17:fim", "x": 30, "y": 300, "w": 390, "rot": -6, "raio": 26, "sombra": 0.35, "lugar": "atras",
+   "entra": {"efeito": "pop", "dur": 0.18}, "sai": 0.12}
+]
+```
 
-Réguas, todas obrigatórias:
+**Réguas padrão.** Valem quando não há formato: nada no primeiro segundo (o gancho é do rosto, menos a tela
+dividida), cada peça que cobre o rosto fica de 1,5 a 6 s (painel até 10 s), uns 2 s de rosto entre uma e a
+próxima. Se a receita de formato ou o `marca/estilo.md` diz outra coisa, eles mandam: escreva os números
+deles em `estilo.reguas` e o script passa a avisar por eles. Camada atrás da pessoa e topo da dividida não
+cobrem o rosto e ficam fora dessas réguas. Ritmo: "algo novo a cada 2,5 s" é de dica rápida; história e
+depoimento pedem respiro.
 
-- **Gancho e emoção são do rosto**: nada no primeiro segundo do vídeo nem em fala pessoal ou emocional.
-  A exceção é o gancho em tela `dividida`, quando o estilo da pasta pede: o rosto continua na metade de baixo.
-- **Respiro**: uns 2 s de rosto entre uma inserção e a próxima; cada inserção fica de 1,5 a 6 s na tela cheia (painel, até 10 s).
-- **Ritmo**: "algo novo a cada 2,5 s" serve para dica rápida; história e depoimento pedem respiro.
-- **Só o que foi dito**: todo número, nome e dado do cartão sai da fala ou de fonte que você conferiu.
-  Sem dado, sem cartão.
-- **Marca é print real**: `uv run "<pasta desta skill>/scripts/print.py" "<site>" "<pasta insercoes>/prints/<marca>.png"`
-  (tela de celular; `--computador` para a de computador). Abra o PNG e confira página certa, sem aviso
-  de cookies na frente e sem dado pessoal; página em branco ou bloqueio pede outro endereço (loja
-  oficial, perfil da marca). Ícone genérico não serve.
-- **Imagem ou vídeo gerado** (Higgsfield, GPT Image, Nano Banana): escreva só o prompt em
-  `<pasta insercoes>/prompts.md` (modelo abaixo), sem gastar crédito. Quando a pessoa trouxer o arquivo,
-  ele entra como tipo `imagem`.
-- **Legenda**: escolha as palavras de destaque (uma a cada 5 a 8 s, a palavra que carrega a frase) e
-  corrija em `correcoes` o que o Whisper ouviu errado.
+**Zona segura.** Texto e peça da frente ficam entre `y` 260 e 1600 (`estilo.zona_segura`): acima e abaixo
+disso o Instagram põe o nome do perfil, a legenda dele e os botões. Peça que precisa sair dela leva
+`"aceito": "<motivo>"`.
 
-Grave o `insercoes.json` (formato abaixo). Pronto quando cada momento de lista, número, comparação,
-passo a passo ou marca da fala virou inserção ou tem o motivo de ter ficado de fora.
+**Só o que foi dito**: todo número, nome e dado sai da fala ou de fonte que você conferiu. Sem dado, sem peça.
+
+**Origem obrigatória**: imagem e vídeo de terceiros vão para `brutos/imagens/` ou `brutos/videos/`, com uma
+linha em `brutos/fontes.md` que tem o nome do arquivo, o endereço e a licença. Camada de `brutos/` sem essa
+linha faz o script parar. Print de marca: `uv run "<pasta desta skill>/scripts/print.py" "<site>"
+"<pasta insercoes>/prints/<marca>.png"`; abra e confira página certa, sem aviso de cookies e sem dado pessoal.
+
+**Imagem ou vídeo gerado** (Higgsfield, GPT Image, Nano Banana): escreva só o prompt em
+`<pasta insercoes>/prompts.md` ([modelo](referencia.md#promptsmd)), sem gastar crédito.
+
+**Legenda**: escolha as palavras de destaque (uma a cada 5 a 8 s, a que carrega a frase), corrija em
+`correcoes` o que o Whisper ouviu errado e use a lista `legenda` para subir, mover ou esconder a legenda
+num trecho (nunca inserção vazia).
+
+Grave o `insercoes.json`. Pronto quando cada momento de lista, número, comparação, passo a passo, marca ou
+cena citada virou peça ou tem o motivo de ter ficado de fora.
 
 ## 3. Confirmar
 
-Mande no chat uma linha por inserção (tempo, tipo, o que aparece), as palavras de destaque e uma
-pergunta só: "Faço assim? Se quiser mudar, é só dizer (por exemplo: 'tira o cartão de 0:42', 'põe o
-número de 1:05')."
+Mande no chat uma linha por peça (tempo, o que aparece, onde), as palavras de destaque e uma pergunta só:
+"Faço assim? Se quiser mudar, é só dizer (por exemplo: 'tira o cartão de 0:42', 'põe o número de 1:05')."
 
-## 4. Cartões
+## 4. Desenhar e conferir
 
 ```
 uv run "<pasta desta skill>/scripts/inserir.py" "<pasta decupagem>" --cartoes
 ```
 
-Grava `cartoes.png` com todos os cartões. Abra e confira: texto certo e com acento, nada cortado,
-destaque na palavra certa. Todo "ATENÇÃO" e todo "Aviso" do script pede correção no `insercoes.json`
-antes de seguir; "a fonte não tem Ã" quer dizer que essa letra sairia em outra fonte.
+Grava `cartoes.png` (cartões, faixas e letterings), a `legenda-curta.srt` e o `.dados/geometria.json`. Abra
+o `cartoes.png` e confira texto certo e com acento, nada cortado, destaque na palavra certa. Todo "Aviso"
+é de régua: ajuste o mapa ou, se a receita pede outro número, `estilo.reguas`. "ATENÇÃO" (zona segura,
+letra que a fonte não tem) faz o script sair com código 2 e não gravar o vídeo.
 
-Pronto quando o script roda sem "ATENÇÃO" e o `cartoes.png` passa na conferência.
+Pronto quando o script sai com código 0, sem "Aviso" que você não saiba explicar, e o `cartoes.png` passa.
 
 ## 5. Vídeo
 
@@ -130,123 +139,42 @@ Pronto quando o script roda sem "ATENÇÃO" e o `cartoes.png` passa na conferên
 uv run "<pasta desta skill>/scripts/inserir.py" "<pasta decupagem>"
 ```
 
-Opções: `--video <arquivo>` (padrão: `final.mp4`, senão `previa.mp4` da decupagem), `--saida
-<arquivo.mp4>`, `--pasta <pasta de trabalho>`. Rode com tempo-limite de 10 minutos.
+Opções: `--video <arquivo>` (padrão: `final.mp4`, senão `previa.mp4` da decupagem), `--saida <arquivo.mp4>`,
+`--pasta <pasta de trabalho>`, `--mascara auto|vision|rvm`. Rode com tempo-limite de 10 minutos. Com
+camada atrás da pessoa, a máscara é gerada antes, só nos trechos dela, e fica guardada.
 
-Ele grava o vídeo, a `legenda-curta.srt` (a legenda de 2 a 4 palavras, para usar no editor) e a pasta
-`quadros/` com um quadro de cada cartão e das legendas com destaque, com acento e a mais longa, todos
-juntos em `quadros/folha.jpg`. Abra a folha (e o quadro inteiro do que estiver em dúvida) e confira:
+Ele grava o vídeo e a pasta `quadros/` com um quadro de cada cartão, camada, dividida e das legendas de
+destaque, juntos em `quadros/folha.jpg`. Abra a folha (e o quadro inteiro do que estiver em dúvida):
 
-- a legenda se lê e não encosta no rosto nem nos botões do Instagram;
+- a legenda se lê e não encosta no rosto nem nos botões;
 - o acento sai na mesma fonte da palavra (o "Ã" do "NÃO");
-- nenhum cartão em painel cobre o rosto.
+- nada da frente cobre o rosto; o que está atrás da pessoa fica atrás do cabelo e das mãos, sem halo.
 
-Pronto quando todos os quadros passam. Entregue assim, uma linha por arquivo:
+Pronto quando todos os quadros passam.
 
-- `<vídeo>-insercoes.mp4`: o vídeo com os cartões e a legenda na imagem, pronto para postar ou para a
-  música.
-- `legenda-curta.srt`: a mesma legenda em pedaços de 2 a 4 palavras, para quem quiser estilizar no
-  CapCut ou no Premiere.
+## 6. Crítica e entrega
+
+Se a `/criticar` estiver instalada, chame-a agora com a pasta do vídeo: ela mede o que o olho erra
+(zona segura, tempo sem evento, legenda contra o SRT) e devolve o que corrigir. Corrija e rode o passo 5
+de novo. Entregue uma linha por arquivo:
+
+- `<vídeo>-insercoes.mp4`: o vídeo com tudo na imagem, pronto para postar ou para a `/sonorizar`.
+- `legenda-curta.srt`: a mesma legenda que está na imagem, para quem quiser estilizar no editor.
 - `prompts.md` (se houver): os prompts das imagens que valem a pena gerar.
-- E uma linha por inserção: tempo, o que aparece e por quê.
+- E uma linha por peça: tempo, o que aparece e por quê.
 
-## 6. Corrigir
+## 7. Corrigir
 
-A pessoa diz o que mudar; edite o `insercoes.json` e rode o passo 5 de novo. Só os cartões e legendas
-que mudaram são redesenhados.
-
-## insercoes.json
-
-Tempos do vídeo cortado, em `"mm:ss,cc"` ou segundos. Caminhos relativos à pasta `insercoes/`.
-
-```json
-{
-  "estilo": {
-    "fonte": "/caminho/da/fonte-Regular.otf",
-    "fonte_destaque": "/caminho/da/fonte-destaque.ttf",
-    "tamanho": 64, "cor": "#FFFFFF", "cor_destaque": "#FFFFFF", "escala_destaque": 1.12,
-    "sombra": 0.45, "maiusculas": false, "legenda_y": 1400, "legenda_y_alto": 330,
-    "cartao_fundo": "#141414", "cartao_tinta": "#F5F2EC", "cartao_destaque": "#E8C27A"
-  },
-  "destaques": ["milhões", "conteúdo"],
-  "correcoes": {"alugas": "aluga-se"},
-  "insercoes": [
-    {"tipo": "lista", "de": "00:12,40", "ate": "00:16,80", "titulo": "Três *erros*",
-     "itens": [{"texto": "Preço sem conta", "t": "00:12,90"}, {"texto": "Vitrine apagada", "t": "00:14,10"}]},
-    {"tipo": "numero", "de": 42.9, "ate": 45.0, "numero": "+100 mil", "texto": "produtos vendidos"},
-    {"tipo": "comparacao", "de": 80.5, "ate": 86.4, "t_direita": 84.5,
-     "esquerda": {"titulo": "A marca diz", "texto": "você desconfia"},
-     "direita": {"titulo": "Gente como você", "texto": "você confia"}},
-    {"tipo": "etapas", "de": 20, "ate": 25, "titulo": "Como fazer", "itens": ["Grave", "Corte", "Poste"]},
-    {"tipo": "print", "de": 35.2, "ate": 38.6, "imagem": "prints/marca.png", "marca": "Marca", "endereco": "marca.com.br"},
-    {"tipo": "frase", "de": 75.3, "ate": 77.6, "texto": "Conformidade *social*"},
-    {"tipo": "imagem", "de": 90, "ate": 92, "imagem": "geradas/cena.png"},
-    {"tipo": "dividida", "de": 0, "ate": 3.1, "imagem": "../brutos/imagens/gancho.jpg",
-     "faixa": "Lojinha de rua virou coisa de pobre?", "recorte_y": 280},
-    {"tipo": "titulo", "de": 5.9, "ate": 9.2, "texto": "R$ 18 milhões", "tamanho": 150, "y": 90},
-    {"tipo": "colagem", "de": 26.9, "ate": 33.1, "pecas": [
-      {"imagem": "../brutos/imagens/produto-1.png", "estilo": "recorte", "x": 650, "y": 60, "largura": 380, "rot": 8, "t": 26.95},
-      {"imagem": "../brutos/imagens/produto-2.png", "x": 90, "y": 80, "largura": 290, "rot": -8, "t": 29.9}]},
-    {"tipo": "colagem", "de": 33.2, "ate": 36.9, "legenda": "alto", "pecas": [
-      {"imagem": "prints/noticia.png", "estilo": "noticia", "x": 250, "y": 1130, "largura": 580, "rot": -3}]},
-    {"tipo": "colagem", "de": 99.1, "ate": 107.6, "pecas": [
-      {"imagem": "../brutos/imagens/rua-cheia.jpg", "estilo": "foto", "x": 30, "y": 80, "largura": 500, "rot": -4, "t": 99.1, "rotulo": "antes"},
-      {"imagem": "../brutos/imagens/sofa-celular.jpg", "estilo": "foto", "x": 550, "y": 110, "largura": 500, "rot": 4, "t": 103.75, "rotulo": "hoje"}]}
-  ]
-}
-```
-
-- `estilo`: só o que difere do padrão. `legenda_y` é o pé das letras, em px num quadro de 1080×1920
-  (1400 deixa a legenda acima dos botões do Instagram). `sombra` vai de 0 a 1.
-- `*palavra*` em qualquer texto de cartão sai na fonte e na cor de destaque.
-- `"formato": "painel"` põe o cartão numa caixa no alto da tela, com o vídeo em volta; sem ele, o cartão
-  ocupa a tela toda e a legenda continua por cima. Painel só quando o rosto fica abaixo da caixa.
-- Item de lista ou etapa sem `"t"` entra sozinho, espalhado na primeira metade da inserção.
-- `"nota"` (opcional) guarda a frase da fala que justifica o cartão; o script ignora.
-- `titulo`: `texto`, `tamanho` (padrão 92) e `y` (altura do alto da frase, padrão 150). Serve para conceito e
-  número grande, sem caixa.
-- `colagem`: `pecas`, cada uma com `imagem`, `estilo` (`"recorte"`, o padrão: PNG sem fundo com sombra;
-  `"foto"`: canto arredondado; `"noticia"`: print em papel branco), `x`, `y`, `largura`, `rot` (giro em graus),
-  `t` (quando entra; sem ele, as peças se espalham na primeira metade) e `rotulo` (opcional). `texto` (opcional)
-  põe uma frase no alto. Título e colagem podem passar de 6 s: o rosto continua à vista.
-- `dividida`: `imagem` na metade de cima, `faixa` (o texto na faixa branca) e `recorte_y`, a altura do quadro
-  de onde sai o recorte de 960 px em volta do rosto que desce para a metade de baixo. A legenda some nesse trecho.
-- `"legenda"` em qualquer inserção muda a legenda só naquele trecho: `"alto"` sobe para `legenda_y_alto`
-  (padrão 330; use quando a peça fica no meio ou embaixo), `"some"` tira a legenda, um número põe na altura
-  que você quiser, em px.
-- No `estilo`, `"palavras_max": 2` com `"letras_max": 13` dá legenda de 1 a 2 palavras (o padrão é de 2 a 4).
-
-## prompts.md
-
-```markdown
-# Prompts de imagem e vídeo: <nome do vídeo>
-
-## 00:16 · placas de "aluga-se" (fala: «um monte de placa de aluga-se»)
-- Ferramenta sugerida: Nano Banana (imagem) ou Higgsfield (vídeo de 3 s)
-- Prompt: <cena, enquadramento vertical 9:16, luz, estilo, o que NÃO pode aparecer>
-- Entra como: tela cheia, 2 s
-```
-
-## Windows
-
-Tudo funciona igual; muda a instalação e o jeito de escrever caminhos.
-
-- **Instalar**: `winget install Gyan.FFmpeg astral-sh.uv` no PowerShell (aceite os termos se ele
-  perguntar). Depois a pessoa fecha e abre o Claude: o Windows só enxerga programa novo numa janela nova.
-- **Primeira vez**: o navegador dos cartões é baixado para `%LOCALAPPDATA%\ms-playwright\`. Se o
-  antivírus perguntar, é seguro permitir. Se o download falhar (rede da empresa, proxy), rode de novo.
-- **Caminhos no `insercoes.json`**: use barra normal, `"C:/Users/Ana/Fontes/Fonte-Regular.otf"`. Barra
-  invertida só dobrada (`"C:\\Users\\..."`), senão o JSON quebra.
-- **Comandos**: rode como no Mac, com aspas duplas em volta de todo caminho (nome de pasta com espaço e
-  acento é comum no Windows: `"C:/Users/Ana/Vídeos/Reel 1/decupagem"`).
-- **Fonte padrão**: sem fonte no estilo, a legenda sai em Segoe UI, que tem acentuação completa.
-- **Tempo**: o vídeo final leva 1 a 2 min por minuto de vídeo; avise antes e rode com tempo-limite de
-  10 minutos.
+A pessoa diz o que mudar; edite o `insercoes.json` e rode o passo 5 de novo. Só o que mudou é redesenhado.
 
 ## Limites
 
-- O ffmpeg do Homebrew não desenha texto: cada legenda e cada cartão é um PNG desenhado pelo navegador
-  e posto por cima do vídeo no tempo dele. Os cartões entram e saem em corte seco, sem animação.
+- Cada legenda, cartão, faixa e lettering é um PNG desenhado pelo navegador. Sem camadas nem tela dividida,
+  o ffmpeg põe tudo por cima do vídeo (caminho rápido); com elas, o `compor.py` monta quadro a quadro, em
+  blocos paralelos, uma geração de compressão só.
+- A máscara do Apple Vision é limpa na borda, mas pode deixar de fora um objeto fino na mão; o recorte
+  RobustVideoMatting (Windows, Mac Intel) pega mais fio de cabelo e às vezes um pedaço do fundo. Confira no
+  quadro da camada.
 - A fonte da pessoa fica no computador dela; o script só lê o arquivo.
 - Print de site depende do site: alguns bloqueiam robô ou abrem em branco. Aí vale a loja oficial ou o
   perfil da marca.
