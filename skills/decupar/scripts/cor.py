@@ -12,22 +12,25 @@ Rode antes do cortar.py; ele usa a mesma conta (se faltar o cor.json, ele mede s
 
 "cor" no cortes.json:
   {"corrigir": true,
-   "look": {"nome": "Ana: Gastronômico + Verão Italiano", "contraste": -4, "sombra": -2, "calor": 0.5}}
+   "look": {"nome": "Gastronômico + Verão Italiano", "contraste": -4, "sombra": -2, "calor": 0.5}}
   corrigir   exposição (só se o vídeo estiver escuro ou claro demais) e branco (tira o tom puxado da luz)
   look       UM só, vindo da skill de estilo da pessoa. contraste e sombra na escala do CapCut (-50 a 50),
              calor de 0 a 1 (tom quente suave), saturacao de -10 a 5 (opcional; 0 = não mexe)
+             ou {"lut": "marca/cor/look.cube"}: o .cube feito pela /minha-edicao (com lut, o resto do look sai)
 Travas: nada de lista de looks (dois filtros por cima), saturação no máximo +5%, ajustes limitados.
 """
+import hashlib
 import math
 import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from comum import achar_pasta, fmt_num, gravar_json, ler_json, rodar, sair, utf8  # noqa: E402
+from comum import achar_marca, achar_pasta, fmt_num, gravar_json, ler_json, resolver, rodar, sair, utf8  # noqa: E402
 
 AMOSTRAS = 8
 MW = 96   # quadros minúsculos bastam para medir
+LOOK_NUMEROS = ("contraste", "sombra", "calor", "saturacao")
 
 
 def limitar(x, a, b):
@@ -50,11 +53,11 @@ def fonte(pasta, info):
     return str(px) if px.exists() else info["arquivo"]
 
 
-def quadro_bytes(video, t, w, h, filtro=""):
+def quadro_bytes(video, t, w, h, filtro="", cwd=None):
     H = max(2, int(round(MW * h / w / 2)) * 2)
     vf = (filtro + "," if filtro else "") + f"scale={MW}:{H}"
     r = subprocess.run(["ffmpeg", "-hide_banner", "-v", "error", "-ss", f"{t:.2f}", "-i", video, "-frames:v", "1",
-                        "-vf", vf, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True)
+                        "-vf", vf, "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, cwd=cwd)
     return r.stdout if r.returncode == 0 else b""
 
 
@@ -110,8 +113,34 @@ def medir(pasta, info):
             "gama": gama, "pixels_neutros": acc[3]}
 
 
-def filtro(cor, medida):
-    """Filtro do ffmpeg: correção (gama e branco) e depois o look. Volta "" se não há nada a fazer."""
+def preparar_lut(pasta, cor):
+    """Copia o .cube do look para .dados/look-<conteúdo>.cube e devolve esse nome. O ffmpeg roda com a pasta
+    .dados como pasta atual e lê o nome curto: caminho com dois-pontos ou acento (Windows) não quebra o filtro."""
+    lut = (cor.get("look") or {}).get("lut") if isinstance(cor.get("look"), dict) else None
+    if not lut:
+        return None
+    marca = achar_marca(pasta.parent)
+    p = resolver(lut, pasta, marca)
+    if p is None:
+        sair(f"cortes.json, cor.look.lut: {lut} pede a pasta marca/, mas não achei marca/estilo.md acima de {pasta.parent}.")
+    if not p.is_file():
+        sair(f"cortes.json, cor.look.lut: não achei o arquivo {p}.")
+    dado = p.read_bytes()
+    if b"LUT_3D_SIZE" not in dado:
+        sair(f"cortes.json, cor.look.lut: {p.name} não é um LUT 3D (.cube com LUT_3D_SIZE).")
+    nome = f"look-{hashlib.sha1(dado).hexdigest()[:10]}.cube"
+    destino = pasta / ".dados" / nome
+    if not destino.exists():
+        destino.write_bytes(dado)
+    sobra = [k for k in LOOK_NUMEROS if (cor.get("look") or {}).get(k)]
+    if sobra:
+        print(f"Aviso: com \"lut\" no look, {', '.join(sobra)} ficam de fora (o LUT já é o look inteiro).")
+    return nome
+
+
+def filtro(cor, medida, lut=None):
+    """Filtro do ffmpeg: correção (gama e branco) e depois o look (números ou LUT). Volta "" se não há nada a fazer.
+    Com LUT, rode o ffmpeg com a pasta .dados como pasta atual (o filtro usa o nome curto do .cube)."""
     if not cor:
         return ""
     partes = []
@@ -123,7 +152,9 @@ def filtro(cor, medida):
         if max(abs(r - 1), abs(gg - 1), abs(b - 1)) > 0.004:
             partes.append(f"colorchannelmixer=rr={r:.4f}:gg={gg:.4f}:bb={b:.4f}")
     look = cor.get("look")
-    if look:
+    if lut:
+        partes.append(f"lut3d=file={lut}:interp=tetrahedral")
+    elif look:
         c = limitar(float(look.get("contraste", 0)), -20, 20)
         s = limitar(float(look.get("sombra", 0)), -20, 20)
         k = limitar(float(look.get("calor", 0)), 0, 1)
@@ -147,7 +178,7 @@ def filtro_da_pasta(pasta, info):
     medida = ler_json(p).get("medida") if p.exists() else None
     if medida is None and cor.get("corrigir", True):
         medida = medir(pasta, info)
-    return filtro(cor, medida)
+    return filtro(cor, medida, preparar_lut(pasta, cor))
 
 
 def tempos_do_corte(pasta, info, n=2):
@@ -158,8 +189,7 @@ def tempos_do_corte(pasta, info, n=2):
         from cortar import ler_cortes, segmentos   # quadros do vídeo cortado, mesmo antes do primeiro render
         pal = ler_json(pasta / ".dados" / "palavras.json")["palavras"]
         frases = {f["id"]: f for f in ler_json(pasta / ".dados" / "frases.json")}
-        pausa, trechos = ler_cortes(pasta, frases, info["duracao"])
-        ss = segmentos(trechos, pal, pausa, info)[0]
+        ss = segmentos(ler_cortes(pasta, frases, pal, info["duracao"]), pal, info)[0]
     if ss:
         escolhidos = [ss[len(ss) // 4], ss[(3 * len(ss)) // 4]][:n]
         return [(s["fi"] + s["fo"]) / 2 / fps for s in escolhidos]
@@ -177,7 +207,8 @@ def main():
     if not cor:
         sair("O cortes.json não tem \"cor\": o vídeo sai com a cor original.")
     medida = medir(pasta, info) if cor.get("corrigir", True) else None
-    f = filtro(cor, medida)
+    dados = pasta / ".dados"
+    f = filtro(cor, medida, preparar_lut(pasta, cor))
     gravar_json(pasta / ".dados" / "cor.json", {"medida": medida, "filtro": f})
     video = fonte(pasta, info)
     w, h = info["largura"], info["altura"]
@@ -194,20 +225,21 @@ def main():
     fc.append("[antes][depois]vstack=2[o]")
     saida = pasta / "cor-antes-depois.jpg"
     r = rodar(["ffmpeg", "-hide_banner", "-v", "error", "-y", *entradas, "-filter_complex", ";".join(fc),
-               "-map", "[o]", "-frames:v", "1", "-q:v", "3", saida])
+               "-map", "[o]", "-frames:v", "1", "-q:v", "3", saida], cwd=dados)
     if r.returncode != 0:
         sair(f"Não consegui montar a folha antes × depois:\n{r.stderr[-800:]}")
     # trava de saturação: compara antes e depois nos mesmos quadros
     s0 = s1 = 0.0
     for t in ts:
         s0 += estatisticas(quadro_bytes(video, t, w, h))[2]
-        s1 += estatisticas(quadro_bytes(video, t, w, h, f) if f else quadro_bytes(video, t, w, h))[2]
+        s1 += estatisticas(quadro_bytes(video, t, w, h, f, cwd=dados) if f else quadro_bytes(video, t, w, h))[2]
     sub = (s1 / max(s0, 1e-6) - 1) * 100
     if medida:
         print(f"Medida: luz média {fmt_num(100 * medida['luma'])}% · branco R×{fmt_num(medida['ganhos_rgb'][0], 3)} "
               f"G×{fmt_num(medida['ganhos_rgb'][1], 3)} B×{fmt_num(medida['ganhos_rgb'][2], 3)} · "
               f"gama {fmt_num(medida['gama'], 3)}")
-    print(f"Look: {(cor.get('look') or {}).get('nome', 'nenhum')} · saturação {'+' if sub >= 0 else ''}{fmt_num(sub)}%")
+    look = cor.get("look") or {}
+    print(f"Look: {look.get('nome') or look.get('lut') or 'nenhum'} · saturação {'+' if sub >= 0 else ''}{fmt_num(sub)}%")
     if sub > 10:
         print("ATENÇÃO: a saturação subiu mais de 10%. Baixe o calor ou ponha \"saturacao\": -3 no look.")
     elif sub < -15:
