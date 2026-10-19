@@ -798,6 +798,34 @@ def main():
         leg = []
     elif pal.exists():
         leg = L.de_palavras(pal, estilo, M.destaques, M.correcoes, info["dur"])
+        # a troca de legenda também encosta na emenda (contrato, seção 2): sem isso a palavra de antes do corte
+        # fica 1 ou 2 quadros sobre o plano novo, ou aparece 1 quadro antes do lettering que a esconde. Só encosta
+        # quando os dois pedaços em volta da troca continuam com 1 quadro ou mais (palavra curta logo depois do
+        # corte fica como está)
+        q1 = 1.0 / info["fps"]
+        leg = [list(g) for g in leg]
+        enc_leg = 0
+        for i, g in enumerate(leg):
+            for lado in (0, 1):
+                t = g[lado]
+                e, mudou = M.ancoras.a.encostar(t)
+                if not mudou:
+                    continue
+                junto = (lado == 1 and i + 1 < len(leg) and abs(leg[i + 1][0] - t) < 1e-6) or \
+                        (lado == 0 and i > 0 and abs(leg[i - 1][1] - t) < 1e-6)
+                if lado == 0 and junto:
+                    continue      # troca dividida com o pedaço de antes: já resolvida por ele
+                ok = (e - g[0] >= q1) if lado == 1 else (g[1] - e >= q1)
+                if junto:
+                    ok = ok and leg[i + 1][1] - e >= q1
+                if ok:
+                    g[lado] = e
+                    if junto:
+                        leg[i + 1][0] = e
+                    enc_leg += 1
+        leg = [tuple(g) for g in leg]
+        if enc_leg:
+            print(f"Legenda: {enc_leg} troca(s) a menos de 3 quadros de uma emenda foram para a emenda.")
     elif srt.exists():
         leg = L.de_srt(srt, estilo, M.destaques, M.correcoes)
     else:

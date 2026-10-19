@@ -84,7 +84,8 @@ inserção com `"legenda": <y>` cria a faixa dela. Faixa com `"aceito": "<motivo
 dos pedaços dela.
 
 A legenda sai do `decupagem/palavras-corte.json` (tempo de cada palavra; cada pedaço fica na tela até o
-próximo, e o último termina no fim do vídeo). Sem ele, sai do `legenda.srt`, dividido pelo número de letras.
+próximo, e o último termina no fim do vídeo). A troca de um pedaço para o seguinte que cai a menos de 3 quadros de uma emenda vai para a emenda (a
+palavra de antes do corte não sobra sobre o plano novo), se os dois pedaços ficarem com 1 quadro ou mais. Sem ele, sai do `legenda.srt`, dividido pelo número de letras.
 A `legenda-curta.srt` é escrita da mesma lista que é gravada na imagem.
 
 ## divididas

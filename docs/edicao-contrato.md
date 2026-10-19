@@ -71,7 +71,8 @@ Todo tempo de `cortes.json`, `insercoes.json` e `som.json` pode ser:
   camada acabar junto com o plano: `"ate": "<1ª frase do plano seguinte>:emenda"`.
 - **Encostar**: no vídeo cortado, todo tempo que cai a menos de 3 quadros de uma emenda vale a emenda (sem
   quadro solto). Vale na `/inserir` e na `/sonorizar` (é o `tempo` do `contrato.py`); a `/inserir` diz quais
-  encostou.
+  encostou. Vale também para a troca de uma palavra da legenda para a seguinte, desde que as duas fiquem com
+  1 quadro ou mais; a `/criticar` reprova a peça que atravessa uma emenda por 1 ou 2 quadros.
 - No `cortes.json`, âncora de palavra (posição, texto, `inicio`, `fim`) sem deslocamento também limita o
   trecho pela posição da palavra (o Whisper sobrepõe palavras coladas); com deslocamento, vale só o tempo.
 
