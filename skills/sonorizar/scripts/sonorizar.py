@@ -32,7 +32,8 @@ from comum import caminho as contrato_caminho  # noqa: E402
 
 VOZ_LUFS = -16.0          # a voz é levada a este nível antes da mistura (referência da trilha e dos efeitos)
 ALVO_LUFS = -14.0         # mistura final (Reels, TikTok, YouTube)
-ALVO_TP = -1.5            # pico verdadeiro máximo
+ALVO_TP = -1.5            # pico verdadeiro máximo (medido no arquivo entregue)
+MARGEM_AAC = 0.4          # o AAC sobe o pico verdadeiro uns décimos de dB: a mistura mira abaixo
 PICO_EFEITO = -12.0       # dBFS do pico de cada efeito com "volume": 0
 CRUZAR = 0.5              # troca de faixa sem "cruzar": meio segundo de crossfade
 DUCK = "sidechaincompress=threshold=0.04:ratio=3:attack=15:release=500:knee=4"
@@ -333,7 +334,9 @@ def envelope(f, s0):
 
 def montar(c, ini, dur):
     """Entradas e filter_complex da mistura da janela [ini, ini+dur] do vídeo. Rótulos: [voz] [trilha] [efeitos] [mix]."""
-    ent = ["-ss", f"{ini:.3f}", "-t", f"{dur:.3f}", "-i", str(c["video"])]
+    # sem -ss quando a janela começa em 0: com "-ss 0" o ffmpeg descarta duas vezes o atraso inicial do AAC e a voz
+    # sai 1024 amostras (21 ms) adiantada em relação à boca
+    ent = (["-ss", f"{ini:.3f}"] if ini > 0 else []) + ["-t", f"{dur:.3f}", "-i", str(c["video"])]
     g = [f"[0:a:0]aresample={SR},aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=mono,highpass=f=70,"
          f"acompressor=threshold=-22dB:ratio=2.5:attack=8:release=200:makeup=2,volume={c['ganho_voz']:.2f}dB,"
          f"aformat=sample_rates=48000:channel_layouts=stereo,apad,atrim=0:{dur:.3f},asplit=3[voz][vozkey][vozout]"]
@@ -516,13 +519,13 @@ def main():
     ent, grafo, evs = montar(c, ini, janela)
     # 1a passada: mede a mistura; 2a: grava com o loudnorm linear (acerta o LUFS sem "bombear" a trilha)
     r = rodar(["ffmpeg", "-hide_banner", "-nostdin", *ent, "-filter_complex",
-               grafo + f";[mix]loudnorm=I={ALVO_LUFS}:TP={ALVO_TP}:LRA=11:print_format=json[o];[vozout]anullsink",
+               grafo + f";[mix]loudnorm=I={ALVO_LUFS}:TP={ALVO_TP - MARGEM_AAC}:LRA=11:print_format=json[o];[vozout]anullsink",
                "-map", "[o]", "-f", "null", "-"])
     try:
         j = json.loads(r.stderr[r.stderr.rindex("{"):r.stderr.rindex("}") + 1])
     except ValueError:
         sair("O ffmpeg não conseguiu medir a mistura:\n" + r.stderr.strip()[-1500:])
-    ln = (f"loudnorm=I={ALVO_LUFS}:TP={ALVO_TP}:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
+    ln = (f"loudnorm=I={ALVO_LUFS}:TP={ALVO_TP - MARGEM_AAC}:LRA=11:measured_I={j['input_i']}:measured_TP={j['input_tp']}:"
           f"measured_LRA={j['input_lra']}:measured_thresh={j['input_thresh']}:offset={j['target_offset']}:linear=true")
     mix = dados / ("mix-trecho.wav" if trecho else "mix.wav")
     # a voz e a trilha já abaixada saem também em separado: é a medida de "trilha abaixo da voz"
@@ -561,6 +564,9 @@ def main():
             print(f"Trilha nas pausas: {fmt_num(pausa)} LU abaixo do nível da voz")
     if abs(m["lufs"] - ALVO_LUFS) > 1:
         print("ATENÇÃO: o volume final ficou mais de 1 LU longe do alvo. Rode de novo uma vez; se repetir, avise.")
+    if m["true_peak"] > ALVO_TP + 0.05:
+        print(f"ATENÇÃO: o pico verdadeiro ({fmt_num(m['true_peak'])} dBTP) passou de {fmt_num(ALVO_TP)} dBTP no arquivo "
+              "entregue. Rode de novo uma vez; se repetir, avise.")
     if evs:
         print(f"Efeitos neste pedaço: {len(evs)}")
     if not trecho:
