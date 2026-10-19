@@ -189,13 +189,21 @@ def gerar(video, pasta, trechos, motor="auto", fps_txt="30/1"):
             motor, porque = "rvm", "não consegui preparar o Apple Vision (falha ao compilar); vou de RobustVideoMatting."
     if porque:
         print("Máscara:", porque, flush=True)
+    # a máscara vale para ESTE vídeo: um novo corte (outro final.mp4) com o mesmo trecho de quadros refaz a máscara
+    st = Path(video).stat()
+    assinatura = f"{st.st_size}:{st.st_mtime_ns}"
     feitos = {}
     for q0, q1 in trechos:
         arq = pasta / f"m-{q0:06d}-{q1:06d}-{motor}.mkv"
         ok = pasta / (arq.name + ".ok")
         if arq.exists() and ok.exists():
-            feitos[(q0, q1)] = arq
-            continue
+            try:
+                valida = json.loads(ok.read_text(encoding="utf-8")).get("assinatura") == assinatura
+            except ValueError:
+                valida = False
+            if valida:
+                feitos[(q0, q1)] = arq
+                continue
         t0 = time.time()
         if motor == "vision":
             n = trecho_vision(exe, video, q0, q1, arq, fps_txt)
@@ -206,7 +214,8 @@ def gerar(video, pasta, trechos, motor="auto", fps_txt="30/1"):
             n = trecho_rvm(sess, video, q0, q1, arq, fps_txt)
         if n != q1 - q0:
             sair(f"A máscara do trecho {q0}–{q1} saiu com {n} quadros (esperava {q1 - q0}).")
-        ok.write_text(json.dumps({"video": str(video), "motor": motor, "quadros": n}), encoding="utf-8")
+        ok.write_text(json.dumps({"video": str(video), "assinatura": assinatura, "motor": motor, "quadros": n}),
+                      encoding="utf-8")
         dt = time.time() - t0
         print(f"Máscara {q0}–{q1}: {n} quadros em {dt:.1f} s ({n / max(dt, 1e-6):.1f} quadros/s, {motor})", flush=True)
         feitos[(q0, q1)] = arq
