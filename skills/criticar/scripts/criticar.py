@@ -194,6 +194,26 @@ def volume(video):
     return {"lufs": pega(r"\bI"), "pico_real": pega(r"True peak:\s*Peak")}
 
 
+def camadas_soltas(itens, cortes, fps):
+    """Peça da geometria (legenda, faixa, lettering, camada, dividida) que atravessa um corte e fica só 1 ou 2
+    quadros de um dos lados: a palavra de antes do corte sobre o plano novo, ou o lettering que entra 1 quadro
+    antes do corte. A imagem não acha (não é corte de tela inteira); a geometria acha."""
+    lim = 3.0 / fps
+    out = []
+    for i in itens:
+        de, ate = i.get("de"), i.get("ate")
+        if not isinstance(de, (int, float)) or not isinstance(ate, (int, float)):
+            continue
+        for c in cortes:
+            if de + 1e-3 < c < ate - 1e-3:
+                lado = "depois" if ate - c < lim else ("antes" if c - de < lim else None)
+                if lado:
+                    q = round((ate - c if lado == "depois" else c - de) * fps)
+                    out.append({"t": round(c, 3), "id": i.get("id"), "texto": i.get("texto"), "lado": lado,
+                                "quadros": max(1, q)})
+    return out
+
+
 # ---------------------------------------------------------------- correções (passo c da skill)
 
 def borda_perto(t, itens, janela):
@@ -328,7 +348,17 @@ def main():
     import fala
     esp, emendas = fala.esperado(pc) if pc else ([], [])
 
-    if soltos:
+    # as emendas da fala (palavras-corte.json); sem elas, os cortes da imagem. Troca só na metade de cima da
+    # dividida (placa aberta → zoom) também é corte da imagem, mas não prende a legenda
+    soltas = camadas_soltas(itens, (pc or {}).get("emendas") or cortes_t, fps)
+    if soltas and not soltos:
+        onde = ", ".join(f"{fmt_tempo(c['t'])} {c['id']}" + (f" «{c['texto']}»" if c.get("texto") else "") +
+                         f" ({c['quadros']} quadro(s) {c['lado']} do corte)" for c in soltas)
+        item("quadros_soltos", "Quadros soltos", "reprova",
+             f"{len(soltas)} peça(s) atravessam um corte por 1 ou 2 quadros", onde,
+             "/inserir · insercoes.json · a borda da camada no corte (\"<frase do plano seguinte>:emenda\"); "
+             "na legenda, rode o inserir.py de novo (ele encosta a troca na emenda)", soltas)
+    elif soltos:
         onde = ", ".join(fmt_tempo(s["t"]) for s in soltos)
         cor = []
         for s in soltos:
@@ -347,7 +377,8 @@ def main():
              f"{len(soltos)} pedaço(s) de {', '.join(str(s['quadros']) for s in soltos)} quadro(s) entre dois cortes",
              onde, " · ".join(cor), soltos)
     else:
-        item("quadros_soltos", "Quadros soltos", "passa", f"{len(cortes)} cortes, nenhum a menos de 3 quadros do outro")
+        item("quadros_soltos", "Quadros soltos", "passa", f"{len(cortes)} cortes, nenhum a menos de 3 quadros do outro"
+             + ("; nenhuma peça atravessa uma emenda por 1 ou 2 quadros" if itens else ""))
 
     # ------------------------------------------------ fala
     print("Transcrevendo o vídeo final com tempo por palavra (uns 10 s por minuto no Mac com chip M; "
