@@ -625,13 +625,6 @@ def render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H
     dados = pasta / ".dados"
     pasta_p = dados / ("pedacos-final" if final else "pedacos-previa")
     pasta_p.mkdir(exist_ok=True)
-    # sem perda gasta ~0,5 byte por pixel (25 MB por segundo em 1080×1920): sem espaço, cai para quase sem perda
-    estimativa = 0.5 * W * H * sum(s["fo"] - s["fi"] for s in segs)
-    sem_perda = shutil.disk_usage(pasta_p).free > estimativa + 1e9
-    if final and not sem_perda:
-        print(f"Aviso: pouco espaço no disco (os pedaços sem perda ocupariam {fmt_num(estimativa / 1e9)} GB); "
-              "vou usar pedaços quase sem perda.", flush=True)
-    codec = intermediario(final, sem_perda)
     try:
         sig = assinatura_video(fonte)
     except OSError:
@@ -640,15 +633,28 @@ def render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H
     def amostras(q):   # amostra de áudio (48 kHz) onde começa o quadro q da linha do tempo
         return int(round(q * Fraction(48000) / fps))
 
-    def fazer(s):
-        """Devolve (arquivo, se foi feito agora, erro)."""
+    def arquivo(s, codec):
         n = s["fo"] - s["fi"]
         m = amostras(s["tl_out"]) - amostras(s["tl_in"])
         corte = janela(fonte_wh[0], fonte_wh[1], centro, s["z"], c["zoom"]["ancora"])
-        geo = "" if corte == (fonte_wh[0], fonte_wh[1], 0, 0) else "crop={}:{}:{}:{},".format(*corte)
         receita = json.dumps([VERSAO_PEDACO, str(fonte), sig, K, s["fi"], n, m, fps_txt, corte, W, H, filtro_cor,
                               [t[1] for t in tentativas][:1], codec])
-        arq = pasta_p / f"{hashlib.sha1(receita.encode()).hexdigest()[:16]}.mov"
+        return pasta_p / f"{hashlib.sha1(receita.encode()).hexdigest()[:16]}.mov", n, m, corte
+
+    # sem perda gasta ~0,5 byte por pixel (25 MB por segundo em 1080×1920): sem espaço, cai para quase sem perda.
+    # Conta só os pedaços que faltam: numa correção, os pedaços sem perda já feitos são reaproveitados.
+    faltam = [s for s in segs if not arquivo(s, intermediario(final, True))[0].exists()]
+    estimativa = 0.5 * W * H * sum(s["fo"] - s["fi"] for s in faltam)
+    sem_perda = shutil.disk_usage(pasta_p).free > estimativa + 1e9
+    if final and not sem_perda:
+        print(f"Aviso: pouco espaço no disco (os pedaços sem perda ocupariam {fmt_num(estimativa / 1e9)} GB); "
+              "vou usar pedaços quase sem perda.", flush=True)
+    codec = intermediario(final, sem_perda)
+
+    def fazer(s):
+        """Devolve (arquivo, se foi feito agora, erro)."""
+        arq, n, m, corte = arquivo(s, codec)
+        geo = "" if corte == (fonte_wh[0], fonte_wh[1], 0, 0) else "crop={}:{}:{}:{},".format(*corte)
         if arq.exists():
             return arq, False, ""
         ini = Fraction(s["fi"]) / fps
@@ -664,7 +670,8 @@ def render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H
             vf = (f"trim=start={max(0.0, float(ini - ss - Fraction(1, 2) / fps)):.6f},setpts=PTS-STARTPTS,"
                   f"fps={fps_txt},tpad=stop_mode=clone:stop={n},trim=end_frame={n},{geo}"
                   f"scale={W}:{H}:flags=lanczos,setsar=1,{tom}{filtro_cor}format=yuv420p")
-            r = rodar(["ffmpeg", "-hide_banner", "-v", "error", "-y", *hw, "-ss", f"{float(ss):.6f}",
+            r = rodar(["ffmpeg", "-hide_banner", "-v", "error", "-y", *hw,
+                       *(["-ss", f"{float(ss):.6f}"] if ss else []),   # "-ss 0" adianta o som AAC em 1024 amostras
                        "-t", f"{d + 1.2:.3f}", "-i", fonte, "-map", "0:v:0", "-map", f"0:a:{K}", "-vf", vf,
                        "-af", af, "-frames:v", str(n), *codec, "-pix_fmt", "yuv420p", "-c:a", "pcm_s16le",
                        "-ar", "48000", "-ac", "2", tmp], cwd=dados)
@@ -686,8 +693,10 @@ def render_pedacos(pasta, info, segs, final, c, fonte, K, fonte_wh, centro, W, H
                      encoding="utf-8")
     v = c["velocidade"]
     vf = f"setpts=PTS/{v:g},fps={fps_txt}" if v != 1 else "null"
+    # asetpts no fim: o loudnorm dinâmico, ao esvaziar o buffer de 3 s no fim do arquivo, salta ~85 ms no relógio do
+    # som; o player toca os últimos 3 s atrasados em relação à boca. Contar as amostras deixa o som contínuo.
     af = (f"atempo={v:g}," if v != 1 else "") + \
-        "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo"
+        "loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo,asetpts=N/SR/TB"
     tonemap = bool(tentativas[0][1])
     cor = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709"] if tonemap else []
     r = rodar(["ffmpeg", "-hide_banner", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lista,
@@ -784,7 +793,7 @@ def render(pasta, info, segs, final, c):
             fc.append("[v0]null[vc]")
             fc.append("[a0]anull[ac]")
         fc.append("[vc]format=yuv420p[vo]")
-        fc.append("[ac]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo[ao]")
+        fc.append("[ac]loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo,asetpts=N/SR/TB[ao]")
         return entradas, ";\n".join(fc)
 
     grafo = pasta / ".dados" / "grafo.txt"
