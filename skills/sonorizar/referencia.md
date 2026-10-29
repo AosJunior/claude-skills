@@ -22,10 +22,10 @@ O Claude escreve o `som.json` em `<pasta do vídeo>/som/`. Fonte da verdade do f
     {"som": "jazz", "de": "F36:Isso", "cruzar": 0.6, "fade_out": 2}
   ],
   "efeitos": [
-    {"camada": "placa", "em": "recorte", "som": "zoom", "volume": -3, "motivo": "zoom seco na placa"},
-    {"camada": "L2", "som": "kaching", "volume": -4, "motivo": "lettering R$ 18 milhões entra"},
-    {"em": "F36:Isso", "som": "virada", "volume": -4, "motivo": "virada de bloco: \"Isso porque...\""},
-    {"insercao": "+100 mil", "som": "clique", "volume": -3, "motivo": "cartão +100 mil entra"},
+    {"camada": "placa", "em": "recorte", "som": "zoom", "volume": 0, "motivo": "zoom seco na placa"},
+    {"camada": "L2", "som": "kaching", "volume": 2, "motivo": "lettering R$ 18 milhões entra"},
+    {"em": "F36:Isso", "som": "virada", "volume": 0, "motivo": "virada de bloco: \"Isso porque...\""},
+    {"insercao": "+100 mil", "som": "clique", "volume": 0, "motivo": "cartão +100 mil entra"},
     {"legenda": "pronto, acabou", "em": "fim", "desvio": -0.1, "som": "piada", "motivo": "fecha a piada"},
     {"t": "00:02,10", "som": "clique", "motivo": "evento sem fala nem camada"}
   ],
@@ -91,7 +91,7 @@ Onde cai (um destes):
 | `em` | a âncora (sem `camada`, `insercao` nem `legenda`) |
 | `t` | o tempo |
 
-E também: `som`, `motivo` (obrigatórios), `volume` (0 = pico em -12 dBFS; -3 a -6 em cima da fala), `desvio` (s,
+E também: `som`, `motivo` (obrigatórios), `volume` (0 = pico em -12 dBFS; de 0 a +5, e 0 em cima da fala), `desvio` (s,
 adianta ou atrasa).
 
 ## entrega

@@ -56,7 +56,10 @@ Pronto quando os dois comandos respondem com a versão.
 ## 1. Transcrever
 
 Pegue o caminho do vídeo (a pessoa arrasta o arquivo para o chat ou diz onde está). Pasta com vários
-vídeos: pergunte qual, um por vez.
+vídeos: pergunte qual, um por vez. Se forem partes do mesmo vídeo, na ordem (bruto1, bruto2...), junte sem
+recomprimir e decupe o arquivo junto. A emenda mantém o giro do iPhone:
+`ffmpeg -f concat -safe 0 -i lista.txt -map 0:v:0 -map 0:a:0 -c copy bruto-completo.MOV`, com `lista.txt`
+trazendo uma linha `file 'bruto1.MOV'` por parte.
 
 ```
 uv run "<pasta desta skill>/scripts/transcrever.py" "<vídeo>"
@@ -91,6 +94,9 @@ Depois decida, frase por frase:
   (`{"de": "F3:2", "ate": "F3:fim"}` tira o "até até" do começo da F3). Palavras que emendam na voz
   ("Aí, até") saem juntas ou ficam juntas.
 - **Começo e fim**: o vídeo começa na primeira frase útil e termina na última (CTA incluído).
+- **A fala é da pessoa**: tire só retake, tropeço e o que ela pediu. Pedido de "cortar mais" ou "acelerar" vira
+  proposta (as frases e o tempo ganho) e espera o sim; nunca corte frase boa por conta própria. Deixe o respiro
+  natural no fim da frase: pausa apertada demais soa cortada.
 - **Pausas e respingos**: o corte tira sozinho as pausas maiores que `pausa_max` e os sons sem
   palavra dentro da frase, e acha a borda de cada fala pelo volume (`"bordas": "som"`). A sua lista
   é só de trechos.
@@ -172,6 +178,9 @@ Com velocidade ou zoom, o vídeo sai em pedaços guardados em `.dados/`: a prime
 cada correção refaz só os pedaços que mudaram.
 
 ## 3. Confirmar
+
+Pedido completo (decupar, inserir e sonorizar de uma vez): siga o grilling da `/inserir` antes de cortar, e não
+gere o final em 1080 aqui; ele sai uma vez só, no fim.
 
 Mande no chat: antes → depois, de 3 a 6 itens do que saiu, os 3 ganchos e uma pergunta só: "Gero a
 prévia assim? Se quiser mudar, é só dizer (por exemplo: 'tira a frase sobre X', 'abre com o gancho
@@ -279,3 +288,7 @@ novo (com `--final` se ela já tinha o final). A transcrição fica em cache: s�
   Lumetri e a Velocidade/Duração com os mesmos valores.
 - Os pedaços do final com velocidade ou zoom ficam em `.dados/pedacos-final/` (uns 25 MB por segundo
   de vídeo final). Depois de publicar, a pasta pode ser apagada.
+
+## Esforço
+
+Esta etapa é mecânica: rode em esforço **low ou medium**. Agentes que você abrir para ela usam `effort: "low"`.

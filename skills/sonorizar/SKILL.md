@@ -80,6 +80,19 @@ der); as candidatas saem de `marca/sons/` e, faltando, do item 4 ou 5.
    (grátis); ela baixa numa pasta e você volta ao item 1. Se for usar a música do próprio Instagram ao postar,
    pule a trilha e faça só os efeitos.
 
+**Áudio em alta**: Reel de quem quer alcance pode usar o áudio em alta, que o público reconhece em 2 s. Ele só entra
+se combinar com o clima e a mensagem do vídeo (passo 1): áudio em alta que não conversa com o conteúdo perde para um
+que conversa. Com o link do áudio no Instagram (`instagram.com/reels/audio/<id>`) ou Reels que o usam, reconheça a
+faixa com o `identificar.py` e ponha a música no **trecho que esses Reels usam**, e não no refrão achado por análise:
+muitas vezes é o começo (`"inicio": 0`). Uma API do Instagram (por exemplo, a ScrapeCreators,
+`/v1/instagram/audio/reels`) dá esse trecho no campo `audio_asset_start_time_in_ms`. Ela também acha o áudio em alta
+do nicho: as músicas com mais plays nos Reels dos últimos 14 dias dos maiores perfis. Comece a até 0,5 s do trecho
+do trend, com a batida forte na ação do vídeo.
+
+Música comercial no arquivo pode deixar o Reel mudo. Avise e entregue também a versão só com os efeitos, sem a
+trilha: o áudio entra pelo Instagram na hora de postar. Com a primeira trilha reprovada, peça referência em vez de
+trocar às cegas de novo.
+
 **Três candidatas, ela escolhe.** Separe 3 trilhas do universo dela, sem voz cantada. Para cada uma, ponha o
 arquivo em `sons` do `som.json` (do Epidemic, a prévia `lqmp3Url` da busca basta:
 `uv run "<pasta desta skill>/scripts/sons.py" --baixar "<link>" "<pasta do vídeo>/som/sons/candidata-1.mp3"`) e
@@ -103,9 +116,23 @@ Pronto quando a trilha tem arquivo e licença e foi escolhida por ela.
 ## 3. Achar os efeitos
 
 Mesma ordem de fonte: `marca/sons/` primeiro, depois `SearchSoundEffects` + `DownloadSoundEffect` no Epidemic.
-Efeito com nome popular ("ba dum tss", "film clicker") pode não existir com esse nome: busque pelo som (bateria
-com prato, obturador de câmera de filme) e, se precisar, monte com 2 ou 3 sons da mesma fonte, cada um nos
-créditos.
+Efeito com nome comum (roleta, caça-níquel, máquina de escrever, aplauso) tem som pronto no Epidemic: use como está,
+só cortado no tamanho do evento. Som montado de pedaços soa artificial e foi reprovado. Se o nome popular não
+aparecer na busca ("ba dum tss", "film clicker"), busque pelo som (bateria com prato, obturador de câmera de
+filme). Montar com 2 ou 3 sons da mesma fonte, cada um nos créditos, só vale quando o som pronto não existe.
+
+**Roleta** (número que gira na tela até travar): a roda soa só no número principal do vídeo, ou no de cada bloco,
+nunca em todo número; datas, números de apoio e o CTA giram mudos. A roda é curta: o último meio segundo dela, que
+termina no estalo da trava, e um fim curto que some. A roda em todo número foi «demais»; só no principal, a de 2 s
+ainda pediu «mais curto, enxuto, rápido e direto». Com a roda do Epidemic «Mechanical, Roller, Wheel Spin, Wheel Of Fortune Style 01»
+(ID 97caed1c-c294-44b7-924a-e39906605838), o último estalo forte fica em 14,096 s. Corte uma vez:
+
+```
+ffmpeg -ss 13.546 -t 0.69 -i roda.wav -af "afade=t=in:d=0.03,afade=t=out:st=0.59:d=0.10" som/sons/roda-curta.wav
+```
+
+No `som.json`, o efeito vai na âncora em que o número trava, com `"desvio": -0.55`, para o estalo cair na trava.
+Com outra roda, ache o último estalo forte de ouvido e troque o `13.546` por ele menos 0,55.
 
 Régua:
 
@@ -117,8 +144,13 @@ Régua:
   com `"camada"` e `"em": "recorte"`; cartão, com `"insercao"`; virada e piada, com `"em"` numa âncora da fala
   (`"F36:Isso"`) ou `"legenda"`. Se o vídeo for cortado de novo, o efeito acompanha. `"t"` só para evento sem fala
   nem camada.
-- **Mesmo som para o mesmo tipo de evento** no vídeo todo (um para virada de bloco, um para número na tela).
-- Efeito que cai em cima da fala vai com `"volume": -3`.
+- **Swoosh só nas viradas.** Se ela pedir mais efeitos, dois swooshes continuam a 5 s ou mais um do outro, e o
+  mesmo som nunca volta a menos de 2 s.
+- **Mesmo som para o mesmo tipo de evento** no vídeo todo (um para virada de bloco, um para número na tela). Som
+  curto e agudo que volta várias vezes (clique, plin) vai em 2 ou 3 variações dele, alternadas: repetido igual, cansa.
+- **Volume** de 0 a +5: de -6 a -12, os efeitos foram achados baixos demais. O efeito-chave, como uma explosão, vai
+  a +5; o efeito em cima da fala, a 0.
+- Só efeito real, do Epidemic ou da pasta dela, nunca som sintetizado.
 
 Pronto quando cada efeito tem arquivo, licença, evento e motivo.
 
@@ -139,6 +171,10 @@ baixa')."
 
 ## 5. Mixar
 
+**Voz**: só passa-altas e compressor suave, como o script faz. Redutor de ruído (`afftdn`), EQ forte e compressor
+3:1 sobem o ruído e foram reprovados. **Mudanças em lote**: junte todos os ajustes, mixe uma vez e confira os dois
+pedaços do passo 6; não mixe a cada ajuste.
+
 ```
 uv run "<pasta desta skill>/scripts/sonorizar.py" "<pasta do vídeo>/som/som.json"
 ```
@@ -146,11 +182,15 @@ uv run "<pasta desta skill>/scripts/sonorizar.py" "<pasta do vídeo>/som/som.jso
 Para ouvir só um pedaço antes do vídeo inteiro: `--trecho 00:30 00:50` (grava `previa-trecho.mp4`).
 
 Pronto quando ele imprime "Pronto", o volume final fica a até 1 LU de -14 e "Trilha embaixo da fala" dá 20 ou
-mais. Abaixo de 20, suba `abaixo_da_voz` em 4 em todas as faixas e rode de novo.
+mais. Abaixo de 20, suba `abaixo_da_voz` em 4 em todas as faixas e rode de novo. A régua da trilha é essa medida,
+e não o `ouvir.py` do passo 6: ele já deu 100 % numa mistura em que a pessoa não entendia a fala, com a trilha a
+15,5 abaixo dela.
 
 ## 6. Conferir a fala
 
-Escolha 2 pedaços de uns 20 s: o que tem efeito em cima da fala e o de trilha mais cheia. Para cada um:
+Escolha 2 pedaços de uns 20 s: o que tem efeito em cima da fala e o de trilha mais cheia. Comece e termine cada
+pedaço numa pausa da fala, entre duas frases da legenda: janela que corta uma palavra dá falso negativo. Para cada
+um:
 
 ```
 uv run "<pasta desta skill>/scripts/ouvir.py" "<vídeo com som>" --base "<vídeo sem trilha>" --de 00:30 --ate 00:50
@@ -172,9 +212,21 @@ O passo 5 já copiou para `entrega/`: o vídeo final com o nome escolhido, a `le
 
 Se a `/criticar` estiver instalada, chame-a com a pasta do vídeo e mostre o relatório antes de dizer que está pronto.
 
-Correções que ela pode pedir: "música mais baixa" (`abaixo_da_voz` + 4), "mais alta" (− 4, nunca abaixo de 12),
+Correções que ela pode pedir: "música mais baixa" (`abaixo_da_voz` + 4), "mais alta" (− 4, nunca abaixo de 12; a
+medida do passo 5 continua em 20 ou mais),
 "tira o efeito do 00:42" (apague a linha), "a música começa em outro ponto" (`inicio`), "troca a música" (volte
 ao passo 2). Depois de cada uma, rode o passo 5.
+
+## Fala baixa
+
+Se o `ouvir.py` ou o ouvido mostrar uma frase de 8 a 10 dB abaixo do resto (a fala virada para o lado, um fim de
+frase), suba só aquele trecho na voz antes de mixar, de A a B segundos, com ganho G (2 = o dobro):
+
+```
+ffmpeg -i "<vídeo>" -c:v copy -af "volume='1+(G-1)*clip((t-A)/0.06,0,1)*clip((B-t)/0.06,0,1)':eval=frame,alimiter=limit=0.89" "<vídeo>-fala.mp4"
+```
+
+Sem o limitador, a voz estoura em 0 dBFS. Depois aponte o `video` do `som.json` para a versão ajustada.
 
 ## Limites
 
@@ -182,3 +234,10 @@ ao passo 2). Depois de cada uma, rode o passo 5.
   `EditRecording` gera a versão no tamanho exato.
 - A voz recebe só um passa-altas e um compressor suave. Ruído de fundo, eco ou vento ficam como estão.
 - O vídeo precisa ter a voz no próprio arquivo; a trilha e os efeitos entram por baixo dela.
+- `EditRecording` com `forceDuration` pode acelerar a música (já deu 14 % a mais). Confira o andamento ou corte a
+  faixa original com fade.
+
+## Esforço
+
+A mixagem e os efeitos são mecânicos: esforço **low ou medium** (`effort: "low"` nos agentes). A busca do áudio em
+alta e o encaixe da batida na ação pedem **high**; a pesquisa na web vai para um agente Sonnet (`model: "sonnet"`).

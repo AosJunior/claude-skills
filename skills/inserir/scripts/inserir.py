@@ -47,7 +47,7 @@ PADRAO = {
     "minusculas": False, "juntar_numeros": False, "nomes": [], "destaque_y": None, "zona_segura": [260, 1600],
 }
 # réguas padrão: valem quando a receita de formato ou o marca/estilo.md não dizem outra coisa (estilo.reguas)
-REGUAS = {"primeiro_segundo": 1.0, "min": 1.5, "max": 6.0, "max_painel": 10.0, "respiro": 2.0}
+REGUAS = {"primeiro_segundo": None, "min": 1.5, "max": 6.0, "max_painel": 10.0, "respiro": 2.0}  # o gancho abre com peça no quadro 0
 TIPOS = {"lista", "etapas", "numero", "comparacao", "frase", "print", "imagem", "titulo", "colagem", "dividida"}
 TIPOS_CAMADA = {"video", "imagem", "faixa", "html"}
 LUGARES = {"topo", "atras", "frente"}

@@ -61,7 +61,7 @@ Só o que difere do padrão.
 | `cartao_fundo`, `cartao_tinta`, `cartao_destaque` | #141414, #F5F2EC, #E8C27A | cores dos cartões |
 
 `reguas` (o que a receita de formato ou o `marca/estilo.md` disser vale mais; `null` desliga uma régua):
-`{"primeiro_segundo": 1.0, "min": 1.5, "max": 6.0, "max_painel": 10.0, "respiro": 2.0}`. Elas valem para
+`{"primeiro_segundo": null, "min": 1.5, "max": 6.0, "max_painel": 10.0, "respiro": 2.0}` (o gancho abre com peça desde o quadro 0; para avisar de peça no começo, ponha os segundos em `primeiro_segundo`). Elas valem para
 cartões e camadas da frente. Camada `atras` e `topo` ficam fora.
 
 `destaques`: as palavras de destaque (na `fonte_destaque`, maiores). `correcoes`: palavra que o Whisper

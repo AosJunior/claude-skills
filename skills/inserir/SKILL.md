@@ -1,6 +1,6 @@
 ---
 name: inserir
-description: Inserções e legenda gravadas no vídeo de Reels, depois da /decupar. Lê a fala, propõe onde entra cada peça (cartão, número grande, print real da marca citada, vídeo atrás da pessoa, tela dividida no gancho), desenha tudo e a legenda de 1 a 4 palavras no estilo da pessoa e entrega o vídeo pronto. Use quando a pessoa mandar /inserir ou pedir inserções, cartões, grafismos, letterings ou legenda na imagem de um vídeo já decupado.
+description: Inserções e legenda gravadas no vídeo de Reels, depois da /decupar. Lê a fala, propõe onde entra cada peça (cartão, número grande, print real da marca citada, vídeo atrás da pessoa, tela dividida no gancho), desenha tudo e a legenda de 1 a 4 palavras no estilo da pessoa e entrega o vídeo pronto. Use quando a pessoa mandar /inserir ou pedir inserções, cartões, grafismos, letterings ou legenda na imagem de um vídeo já decupado. Com pedido de animação suave no estilo Apple ou de vídeo 100% motion só com a voz, faz o motion em HyperFrames + GSAP (o rosto em janela ou só a voz).
 ---
 
 # /inserir
@@ -30,6 +30,33 @@ demora, diga quanto tempo leva:
 | Vídeo final com camadas ou tela dividida | uns 25 s por minuto de vídeo | 2 a 4 min por minuto |
 
 A única pergunta do fluxo é a confirmação do mapa (passo 3). O resto você executa.
+
+## Pedido completo (decupar, inserir e sonorizar de uma vez)
+
+Quando a pessoa pede o vídeo inteiro de uma vez ("decupa, insere e sonoriza", "edita tudo", "só quero ver o final"),
+as três skills rodam em sequência, mas **antes de abrir qualquer agente** faça um grilling curto, uma pergunta por
+vez, até fechar:
+
+1. **Mensagem e clima**: o que ela quer que o público sinta e leve. Isso guia a trilha, o gancho e os cortes.
+2. **Gancho**: a ideia da tela de abertura em uma frase.
+3. **Trilha**: Reels ou áudio de referência, se ela tiver. Sem referência, você resolve sozinho (veja a `/sonorizar`).
+4. **Fala intocável**: frases que não podem sair, mesmo para acelerar.
+5. **Orçamento**: diga o plano (quantos agentes, quantas rodadas, quais trechos em motion) e espere o sim.
+
+Depois do grilling, na ordem e sem voltar:
+
+- **Fatos fechados antes das peças**: todo número e nome que vai para a tela entra no `fatos-verificados.md` da pasta
+  do vídeo antes de desenhar.
+- **Estado em disco**: mantenha `estado.md` na pasta do vídeo (etapa, arquivos vigentes, decisões com a frase dela, o
+  que falta) e atualize no fim de cada etapa.
+- **Conversa enxuta**: cada turno relê a conversa inteira, então o que entra nela pesa em todos os seguintes. Leia os
+  resumos dos agentes e a saída curta dos comandos; quadro, folha de contato, cena e log ficam com quem os fez.
+- **Uma conversa por skill**: a decupagem, as inserções e o som podem rodar cada um numa conversa nova, que começa
+  lendo o `estado.md`. No fim de cada uma, diga em uma linha para ela abrir a próxima conversa com a skill seguinte.
+- **Uma renderização final só**: o 1080 roda depois que ela aprova a prévia leve **com som**. Correção pequena
+  depois disso refaz só o trecho.
+- **Mixagem em lote**: junte todas as mudanças de som, mixe uma vez e confira.
+- Use sempre os scripts e modelos das skills; não copie o motor ou o mixer de outro vídeo.
 
 ## 0. Conferir o ambiente
 
@@ -87,9 +114,12 @@ Use o que o `marca/estilo.md` pede; sem ele, cartões. Exemplo curto de camadas 
 ]
 ```
 
-**Réguas padrão.** Valem quando não há formato: nada no primeiro segundo (o gancho é do rosto, menos a tela
-dividida), cada peça que cobre o rosto fica de 1,5 a 6 s (painel até 10 s), uns 2 s de rosto entre uma e a
-próxima. Se a receita de formato ou o `marca/estilo.md` diz outra coisa, eles mandam: escreva os números
+**Réguas padrão.** Valem quando não há formato. **Gancho com peça desde o quadro 0**: rosto falando sozinho no
+começo não para o scroll (1,4 s só de rosto foi o defeito de um Reel). O gancho abre com um título grande e
+chamativo (a promessa ou o conflito da fala), que já se lê no quadro 0, e com algo que se move: de preferência a
+tela dividida, com a cena da fala em cima e a pessoa embaixo. Emoção pessoal no meio do vídeo continua sendo do
+rosto, sem peça. Cada peça que cobre o rosto fica de 1,5 a 6 s (painel até 10 s), com uns 2 s de rosto entre uma e
+a próxima. Se a receita de formato ou o `marca/estilo.md` diz outra coisa, eles mandam: escreva os números
 deles em `estilo.reguas` e o script passa a avisar por eles. Camada atrás da pessoa e topo da dividida não
 cobrem o rosto e ficam fora dessas réguas. Ritmo: "algo novo a cada 2,5 s" é de dica rápida; história e
 depoimento pedem respiro.
@@ -167,6 +197,53 @@ de novo. Entregue uma linha por arquivo:
 
 A pessoa diz o que mudar; edite o `insercoes.json` e rode o passo 5 de novo. Só o que mudou é redesenhado.
 
+## Motion em HyperFrames + GSAP (quando a pessoa pede animação)
+
+As peças deste fluxo entram em corte seco ou com pop. Quando a pessoa pede animação "smooth", "profissional",
+"estilo Apple", "tudo o que eu falo acontece na tela" ou um vídeo **100 % motion só com a voz**, o vídeo é feito em
+**HyperFrames** (HTML renderizado em vídeo, Apache-2.0, roda no Mac e no Windows com Node 22+) e **GSAP**. Antes de
+escrever a primeira cena, leia `<pasta desta skill>/referencias/gsap-hyperframes.md` (o contrato do render e a régua
+de movimento). As consultas estão copiadas em `referencias/hyperframes/` e `referencias/gsap/`; esta skill não
+depende de outra instalada.
+
+- **Projeto**: `npx hyperframes init <pasta do vídeo>/motion` uma vez. Raiz 1080×1920 (`data-width`/`data-height`),
+  `data-duration` igual à duração da fala cortada. Uma cena por subcomposição (`data-composition-src`), cada uma com
+  sua timeline pausada e ids prefixados com o nome da cena.
+- **Dois modos**:
+  - **Com rosto**: o vídeo cortado da `/decupar` entra como `<video>` (sem `crossorigin`). Nos trechos de conteúdo ele
+    encolhe para uma janela arredondada embaixo e o conteúdo fica em cima; no gancho, tela dividida desde o quadro 0.
+    A geometria de cada trecho vira tweens do contêiner do vídeo (`x`, `y`, `scale`, `borderRadius`), nunca do
+    `<video>` com `data-start`.
+  - **100 % motion (só a voz)**: a voz entra como `<audio id="voz">`; não há janela nem rosto. Cada frase vira uma
+    cena com transição causada por algo na tela.
+- **Tempo da fala**: o tempo de cada palavra vem de alinhamento forçado da voz com o texto corrigido (a transcrição
+  da `/decupar` ou o roteiro), por exemplo o do ElevenLabs (`POST /v1/forced-alignment`, com números e siglas por
+  extenso no texto). O `palavras-corte.json` e o `npx hyperframes transcribe` vêm do Whisper, que já errou até
+  0,6 s. Confira nas pausas da onda (`silencedetect` do ffmpeg): nenhuma palavra começa dentro de uma pausa de
+  120 ms ou mais. Cada coisa dita entra na palavra em que é dita. Legenda por palavra, de 2 a 4 palavras por grupo,
+  logo acima do vídeo (ou no terço de baixo no modo só voz).
+- **Dados reais**: mockup de perfil com a foto, o nome e os posts reais (sem posts políticos); conversa do Claude com o
+  pedido de verdade; número só da fala ou do `fatos-verificados.md`. Interface filmada da tela é redesenhada em HTML a
+  partir do código e dos quadros, com letra maior para o celular.
+- **Número na tela** pode girar como roleta até travar na palavra. O som da roda é da `/sonorizar`: só no número
+  principal e curto.
+- **Antes de desenhar**: procure o efeito no registro (`npx hyperframes catalog --query <efeito> --json`,
+  `referencias/hyperframes/registry.md`) antes de fazer à mão.
+- **Gancho**: movimento e título que já se leem no quadro 0; a ação presa às palavras; o quadro do impacto vira a capa.
+  Um gancho só, em high (segunda versão só se a pessoa pedir), aprovado com som antes das outras cenas.
+- **Equipe e orçamento**: um agente por cena, em paralelo, com briefing em arquivo e teto de uns 40 turnos. Ele roda
+  `npx hyperframes check` e confere 3 quadros-chave (`npx hyperframes snapshot --at ...`), nunca a sequência inteira.
+  Depois, **um** revisor de olhos novos lê uma folha de contato do vídeo montado e devolve a lista de correções; não
+  há revisor por trecho, crítico extra nem auditoria quadro a quadro.
+- **CTA**: o toque no ícone abre o app com mola e a palavra do CTA é digitada na barra de comentário.
+- **Ordem**: `check` limpo → prévia leve com som para a pessoa aprovar (`npx hyperframes preview --background` ou
+  render em qualidade de rascunho) → `npx hyperframes render` em 1080×1920 uma vez. Correção depois disso renderiza
+  só o trecho. O som final sai na `/sonorizar` sobre o vídeo renderizado.
+- **Pasta**: trabalhe fora da Mesa e de Documentos quando o disco estiver quase cheio (o iCloud tira os arquivos do
+  disco: "Operation timed out").
+- **Revisão**: legenda contra balões e cartões, elementos que sobram depois da saída da cena e palavras da fala que
+  ficam baixas (essas sobem na `/sonorizar`, «Fala baixa»).
+
 ## Limites
 
 - Cada legenda, cartão, faixa e lettering é um PNG desenhado pelo navegador. Sem camadas nem tela dividida,
@@ -178,3 +255,11 @@ A pessoa diz o que mudar; edite o `insercoes.json` e rode o passo 5 de novo. Só
 - A fonte da pessoa fica no computador dela; o script só lê o arquivo.
 - Print de site depende do site: alguns bloqueiam robô ou abrem em branco. Aí vale a loja oficial ou o
   perfil da marca.
+
+## Esforço
+
+- Peças simples, legenda e mapa de inserções: **medium**.
+- Motion: o gancho e as cenas com gráfico ou componente novo rodam em **high**, no Opus. A cena simples, que repete
+  um componente já aprovado sem gráfico novo, roda em **high** no Sonnet (`model: "sonnet"`).
+- A revisão final de olhos novos: **max** (`effort: "max"`), só ela.
+- Orquestração, montagem, render e mixagem: **medium**.
