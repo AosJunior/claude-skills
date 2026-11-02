@@ -230,7 +230,10 @@ depende de outra instalada.
 - **Antes de desenhar**: procure o efeito no registro (`npx hyperframes catalog --query <efeito> --json`,
   `referencias/hyperframes/registry.md`) antes de fazer à mão.
 - **Gancho**: movimento e título que já se leem no quadro 0; a ação presa às palavras; o quadro do impacto vira a capa.
-  Um gancho só, em high (segunda versão só se a pessoa pedir), aprovado com som antes das outras cenas.
+  Um gancho só, em high (segunda versão só se a pessoa pedir), aprovado com som antes das outras cenas. Com segunda
+  versão, ela escolhe por uma folha só, sem render: cada versão numa cópia da pasta do motion e
+  `npx --yes hyperframes@0.9.6 compare "<cópia A>" "<cópia B>" --at <t> --labels "A,B" --out "<pasta>/gancho-ab.png"`
+  (pastas inteiras: a composição do gancho sozinha sai em branco).
 - **Equipe e orçamento**: um agente por cena, em paralelo, com briefing em arquivo e teto de uns 40 turnos. Ele roda
   `npx hyperframes check` e confere 3 quadros-chave (`npx hyperframes snapshot --at ...`), nunca a sequência inteira.
   Depois, **um** revisor de olhos novos lê uma folha de contato do vídeo montado e devolve a lista de correções; não

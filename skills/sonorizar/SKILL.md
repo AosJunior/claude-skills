@@ -89,6 +89,9 @@ muitas vezes é o começo (`"inicio": 0`). Uma API do Instagram (por exemplo, a 
 do nicho: as músicas com mais plays nos Reels dos últimos 14 dias dos maiores perfis. Comece a até 0,5 s do trecho
 do trend, com a batida forte na ação do vídeo.
 
+Drop que cai na fala some com o abaixamento automático da trilha: suba o volume dela nesse instante (automação com
+`volume='...':eval=frame` numa mixagem própria, por cima da que o script gera).
+
 Música comercial no arquivo pode deixar o Reel mudo. Avise e entregue também a versão só com os efeitos, sem a
 trilha: o áudio entra pelo Instagram na hora de postar. Com a primeira trilha reprovada, peça referência em vez de
 trocar às cegas de novo.
@@ -184,7 +187,8 @@ Para ouvir só um pedaço antes do vídeo inteiro: `--trecho 00:30 00:50` (grava
 Pronto quando ele imprime "Pronto", o volume final fica a até 1 LU de -14 e "Trilha embaixo da fala" dá 20 ou
 mais. Abaixo de 20, suba `abaixo_da_voz` em 4 em todas as faixas e rode de novo. A régua da trilha é essa medida,
 e não o `ouvir.py` do passo 6: ele já deu 100 % numa mistura em que a pessoa não entendia a fala, com a trilha a
-15,5 abaixo dela.
+15,5 abaixo dela. Quando a pessoa quer a trilha mais presente, ela sobe nos respiros e nas viradas, até uns 7 a 9
+abaixo da voz (automação, como no drop do passo 2); sob a fala continua nos 20. É isso que faz efeito.
 
 ## 6. Conferir a fala
 
@@ -212,8 +216,8 @@ O passo 5 já copiou para `entrega/`: o vídeo final com o nome escolhido, a `le
 
 Se a `/criticar` estiver instalada, chame-a com a pasta do vídeo e mostre o relatório antes de dizer que está pronto.
 
-Correções que ela pode pedir: "música mais baixa" (`abaixo_da_voz` + 4), "mais alta" (− 4, nunca abaixo de 12; a
-medida do passo 5 continua em 20 ou mais),
+Correções que ela pode pedir: "música mais baixa" (`abaixo_da_voz` + 4), "mais alta" ou "não faz efeito" (suba nos
+respiros e nas viradas; sob a fala ela segue nos 20 do passo 5),
 "tira o efeito do 00:42" (apague a linha), "a música começa em outro ponto" (`inicio`), "troca a música" (volte
 ao passo 2). Depois de cada uma, rode o passo 5.
 
