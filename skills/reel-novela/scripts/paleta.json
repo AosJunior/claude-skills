@@ -1,0 +1,50 @@
+{
+ "nota": "Paleta inicial aprovada (26/10/2026): uma família seca, moderna, de dados e telejornal. Para mudar numa peça, copie para sequencia/som/paleta.json e edite lá. sons: arquivo (em sequencia/som/), título e ID no Epidemic. tipos: vol padrão (pico em -12 + vol dBFS), var = variações, cada uma uma lista de camadas {som, de, ate, entrada, saida (s), alinhar (ataque, pico, fim, inicio), rel (dB sobre o vol do evento), desloc (s), swoosh}. max = quantas vezes o tipo pode aparecer no vídeo. roleta: som da roda e parada = onde o último estalo forte cai no arquivo (\"auto\" mede).",
+ "sons": {
+  "whoosh-grave": {"arquivo": "sons/whoosh-grave.wav", "titulo": "Swooshes, Whoosh, Deep, Low, Cinematic", "id": "689b1489-8811-4963-a9af-28187d5c7486"},
+  "whoosh-ar": {"arquivo": "sons/whoosh-ar.wav", "titulo": "Swooshes, Whoosh, Designed, Generic, Air", "id": "c406a00b-d4b3-42e9-ba76-707ba5174543"},
+  "whoosh-digital": {"arquivo": "sons/whoosh-digital.wav", "titulo": "Swooshes, Whoosh, Designed, Digital, Wide", "id": "042c787b-68bb-41da-849c-c8ec42b16763"},
+  "whoosh-curto": {"arquivo": "sons/whoosh-curto.wav", "titulo": "Swooshes, Whoosh, Short, Deep Reversed, Dry", "id": "14f0f3a4-cc2b-4d8b-b453-49fd070c591d"},
+  "impacto-grave": {"arquivo": "sons/impacto-grave.wav", "titulo": "Designed, Boom, Low Hit", "id": "6d82b75c-2d2f-40b3-9e1b-4d822c1173d5"},
+  "subida": {"arquivo": "sons/subida.wav", "titulo": "Designed, Riser, Metal Hit, Reverse, Build, Crescendo", "id": "0e565244-d80e-4d88-801e-5183a6335937"},
+  "clique-seco": {"arquivo": "sons/clique-seco.wav", "titulo": "User Interface, Click, Hard, Short", "id": "db6b8aed-e2b5-4597-af29-088f0a3bd988"},
+  "toque-grave": {"arquivo": "sons/toque-grave.wav", "titulo": "User Interface, Alert, Pops, Plastic, Tap, Pops", "id": "ba6ef87a-a4ea-4901-bf6e-1311b3e3ddfa"},
+  "pop-vidro": {"arquivo": "sons/pop-vidro.wav", "titulo": "User Interface, Click, Pops, Glass, UI, Pops", "id": "9da883ac-6b03-4df0-b8e6-cd85c7c926a5"},
+  "acorde-quente": {"arquivo": "sons/acorde-quente.wav", "titulo": "Games, Video, GUI Menu Button, Select OK, Warm, Chorus, Chord", "id": "e40b6261-bc09-408b-94f5-e6a32b6ec0ae"},
+  "tom-confirma": {"arquivo": "sons/tom-confirma.wav", "titulo": "User Interface, Alert, Tonal, Digital Button Confirm", "id": "36f8a2b1-9eb9-4928-96f9-17f44e7c72fa"},
+  "bipe-quente": {"arquivo": "sons/bipe-quente.wav", "titulo": "User Interface, Alert, Notification, Beep, Confirmation, Warm", "id": "5a7fde22-95f5-496a-962d-f8ee9369a270"},
+  "roda-de-premios": {"arquivo": "sons/roda-de-premios.wav", "titulo": "Mechanical, Roller, Wheel Spin, Wheel Of Fortune Style 01", "id": "97caed1c-c294-44b7-924a-e39906605838"}
+ },
+ "tipos": {
+  "virada": {"vol": -3, "var": [
+   [{"som": "whoosh-grave", "de": 0.15, "saida": 0.35, "alinhar": "pico", "swoosh": true}],
+   [{"som": "whoosh-grave", "de": 0.72, "alinhar": "inicio", "swoosh": true}]
+  ]},
+  "camera": {"vol": -5, "max": 3, "var": [
+   [{"som": "whoosh-ar", "de": 0.08, "ate": 0.55, "alinhar": "pico", "swoosh": true}],
+   [{"som": "whoosh-digital", "alinhar": "pico", "swoosh": true}]
+  ]},
+  "golpe": {"vol": 4, "var": [
+   [{"som": "whoosh-curto", "de": 0.10, "ate": 0.62, "alinhar": "pico", "rel": -9, "desloc": -0.03, "swoosh": true},
+    {"som": "impacto-grave", "ate": 3.0, "saida": 0.6, "alinhar": "ataque"}]
+  ]},
+  "grave": {"vol": 2, "var": [
+   [{"som": "impacto-grave", "ate": 3.0, "saida": 0.6, "alinhar": "pico"}]
+  ]},
+  "subida": {"vol": 1, "var": [
+   [{"som": "subida", "de": 0.20, "ate": 1.60, "alinhar": "fim"}]
+  ]},
+  "cartao": {"vol": 1, "var": [
+   [{"som": "clique-seco", "ate": 0.15, "alinhar": "ataque"}],
+   [{"som": "toque-grave", "ate": 0.12, "alinhar": "ataque"}],
+   [{"som": "pop-vidro", "ate": 0.15, "alinhar": "ataque"}]
+  ]},
+  "brilho": {"vol": -3, "var": [
+   [{"som": "acorde-quente", "ate": 0.40, "alinhar": "ataque"}],
+   [{"som": "tom-confirma", "ate": 0.90, "alinhar": "ataque"}],
+   [{"som": "bipe-quente", "ate": 0.80, "alinhar": "ataque"}]
+  ]}
+ },
+ "roleta": {"som": "roda-de-premios", "parada": 14.096, "vol": -2, "giro": 0.55, "cauda": 0.14, "entrada": 0.03,
+            "saida": 0.10, "junto": 0.05, "so_principal": true}
+}

@@ -10,6 +10,7 @@ Skills do Claude Code prontas pra instalar. Cada pasta em [skills/](skills/) é 
 | [`/inserir`](skills/inserir/SKILL.md) | **Chat 2 — legenda e camadas.** Lê a fala decupada, propõe as inserções e grava tudo no vídeo. No v2: legenda de 1 palavra com o destaque subindo em outra fonte, tela dividida no gancho (headline na emenda, laterais borradas), camadas de vídeo, imagem, faixa e lettering atrás de você (com máscara), na frente ou na metade de cima, cada uma presa a uma palavra da fala. Com pedido de animação no estilo Apple ou de vídeo só com a voz, faz o motion em HyperFrames + GSAP (o rosto em janela ou só a voz), com o tempo de cada palavra por alinhamento forçado. Precisa de ffmpeg e uv (e Node 22 ou mais para o motion). |
 | [`/sonorizar`](skills/sonorizar/SKILL.md) | **Chat 3 — som e entrega.** Trilha e efeitos sonoros para vídeo falado: propõe o clima, poucos efeitos (cada um com motivo) e mixa com a música abaixando sozinha quando você fala, em -14 LUFS, com os créditos de cada som. No v2: duas trilhas com troca na virada de bloco, efeitos presos às camadas, identificação das músicas dos seus Reels (Shazam) e a pasta `entrega/` pronta. Também acha o áudio em alta no trecho que os Reels usam e põe a roleta curta só no número principal. Usa sons da sua pasta ou do Epidemic Sound. Precisa de ffmpeg e uv. |
 | [`/criticar`](skills/criticar/SKILL.md) | **Chat 4 — crítica.** Mede o vídeo pronto (emendas, gagueira, quadros soltos, zona segura, posições repetidas, tempo sem nada acontecer, legenda, volume) e um editor-chefe compara com a sua referência. Cada item sai como passa ou reprova, com a medida e o tempo, e volta para a skill que corrige. Precisa de ffmpeg e uv. |
+| [`/reel-novela`](skills/reel-novela/SKILL.md) | **Anúncio ou Reel em episódios, sem gravar.** Uma personagem de ficção em pixel art tem um problema com prazo, um relógio e um medidor de jogo ficam no topo, um trecho real do seu vídeo ou aula é a virada, e o episódio termina em duas opções de uma palavra («Comenta uma palavra»). A skill conduz a bíblia da série, o elenco e os cenários, o roteiro na grade de batidas, a narração por IA com o tempo de cada palavra, as cenas em HyperFrames + GSAP, o som e a entrega. Roda sozinha, sem as outras skills. Precisa de ffmpeg, uv, Node 22 ou mais, uma chave do ElevenLabs e um gerador de imagem; trilha e efeitos vêm da sua pasta ou do Epidemic Sound. |
 | [`/minha-edicao`](skills/minha-edicao/SKILL.md) | Escreve o seu jeito de editar a partir dos seus Reels: o **estilo** (legenda, zoom, cor por LUT, letterings, tela dividida, trilha) em `marca/estilo.md`, que as 4 skills acima leem, e uma skill por **formato** (blocos, gancho e a composição de cada bloco em px). Mede o Reel de referência, pergunta só o que é decisão sua e mostra a receita no seu vídeo antes de gravar. Exemplos prontos em `exemplos/`. |
 | [`/docs-init`](skills/docs-init/SKILL.md) | Funda o modelo de documentação em 4 camadas num projeto novo ou existente: escaneia o repo, te entrevista (formato grilling) e cria `docs/` já preenchidos — ROADMAP, EXECUTION-LOG, DEBT, MODULES-STATUS, features/, `exports/specs/` e a seção no CLAUDE.md/AGENTS.md. |
 | [`/primeiro-valor`](skills/primeiro-valor/SKILL.md) | Revisa ou desenha a primeira sessão de um app pelo olhar de quem nunca usou: onboarding, tela vazia, o que aparece depois da ação, progresso, recurso trancado e home com escolhas demais — devolve o que falta como itens de spec e as decisões que só você toma. |
@@ -28,6 +29,12 @@ Só as skills do kit de edição de vídeo (decupar, inserir, sonorizar, critica
 
 ```bash
 npx github:AosJunior/claude-skills edicao
+```
+
+Só a do anúncio em episódios (`/reel-novela`):
+
+```bash
+npx github:AosJunior/claude-skills reel-novela
 ```
 
 Só uma skill, pela CLI `skills` (escopo global):

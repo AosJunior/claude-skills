@@ -1,0 +1,195 @@
+/* Novela · componentes de motion (HyperFrames + GSAP), 1080×1920.
+   Fonte: <pasta da série>/componentes/. O projeto usa a cópia em assets/novela/ (montar_projeto.py ou
+   componentes/sincronizar.py <projeto>). Edite aqui e sincronize; edição na cópia se perde.
+
+   Base: a régua visual da skill (referencias/regua-visual.md). Cores da barra, das telas chapadas e dos cartões: a
+   pele da série (bíblia, «Pele da camada de jogo»); os valores abaixo são a pele neutra da skill.
+   Tudo com prefixo nv- (as composições dividem o mesmo documento). Estados iniciais e movimento ficam no novela.js. */
+
+@font-face { font-family: "Montserrat"; font-weight: 400; src: url("../fontes/montserrat-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-weight: 700; src: url("../fontes/montserrat-latin-700-normal.woff2") format("woff2"); }
+@font-face { font-family: "Montserrat"; font-weight: 900; src: url("../fontes/montserrat-latin-900-normal.woff2") format("woff2"); }
+
+:root {
+  /* pele neutra da skill: troque os valores pela pele da série (bíblia, «Pele da camada de jogo»).
+     Todo par texto × fundo dos componentes passa de 4,5:1 com estes valores; confira de novo ao trocar. */
+  --nv-fundo: #10141f;          /* fundo escuro: barra, telas chapadas, etiqueta escura, «OU» */
+  --nv-fundo-2: #171c2a;        /* tela do telefone */
+  --nv-fundo-3: #212839;        /* topo da conversa no telefone */
+  --nv-trilho: #2d3550;         /* trilho vazio do medidor, mensagem enviada */
+  --nv-claro: #f3f1ec;          /* texto claro e superfície clara (faixa do cartão, mensagem recebida) */
+  --nv-creme: #fbf2d9;          /* etiqueta da pergunta */
+  --nv-recuado: #b4bccd;        /* texto secundário sobre o escuro (rótulos, subtítulos, bio) */
+  --nv-tinta: #121622;          /* texto escuro sobre o claro */
+  --nv-moldura: #c49a4a;        /* borda da barra e do trilho, contorno da etiqueta dourada (não é texto) */
+  --nv-dourado: #f0cd78;        /* etiqueta de número */
+  --nv-quente: #f5a441;         /* acento quente: nível e percentual do medidor */
+  --nv-quente-claro: #f1ab7c;   /* metade esquerda do cartão das duas opções */
+  --nv-quente-escuro: #7a4a24;  /* avatar com iniciais */
+  --nv-frio: #8cb6e6;           /* acento frio: etiqueta de nome, metade direita do cartão */
+  --nv-frio-borda: #4675ad;     /* contorno da etiqueta azul (não é texto) */
+  /* estado */
+  --nv-alarme: #c4292b;         /* fundo da etiqueta vermelha: branco 5,68:1 */
+  --nv-alarme-vivo: #ff5c4d;    /* palavra-chave da legenda e percentual do cartão, sempre sobre contorno escuro */
+  --nv-ok: #59c48a;             /* verde de estado: etiqueta verde */
+  --nv-ouro-vivo: #ffd166;      /* segunda cor da legenda (nome, número), sobre contorno escuro */
+  --nv-contorno: #0a0c12;
+  --nv-branco: #ffffff;
+  --nv-fonte: "Montserrat", sans-serif;
+}
+
+/* ---------- comum ---------- */
+.nv-camada { position: absolute; inset: 0; overflow: hidden; }
+.nv-texto { font-family: var(--nv-fonte); font-weight: 900; text-transform: uppercase; }
+/* âncora de largura e altura zero: o filho se centra nela por flex (sem translate, que o GSAP moveria) */
+.nv-ancora { position: absolute; width: 0; height: 0; display: flex; align-items: center; justify-content: center; }
+.nv-pixel { image-rendering: pixelated; }
+.nv-contorno-txt { -webkit-text-stroke: var(--nv-traco, 12px) var(--nv-contorno); paint-order: stroke fill; }
+
+/* ---------- 1. legenda (compositions/legenda.html) ---------- */
+.nv-lg-linha { position: absolute; left: 0; width: 1080px; height: 0; }
+.nv-lg-txt { position: absolute; left: 0; top: 0; white-space: nowrap; font-family: var(--nv-fonte); font-weight: 900;
+  text-transform: uppercase; line-height: 1; letter-spacing: 0.01em; color: var(--nv-branco);
+  -webkit-text-stroke: var(--nv-traco, 13px) var(--nv-contorno); paint-order: stroke fill; }
+.nv-lg-p { display: inline-block; }
+.nv-lg-p.a, .nv-lg-p.e { color: var(--nv-alarme-vivo); }
+.nv-lg-p.b { color: var(--nv-ouro-vivo); }
+.nv-lg-p.e { font-size: 1.12em; }
+
+/* ---------- 2. etiqueta inclinada ---------- */
+.nv-et { flex: none; white-space: nowrap; font-family: var(--nv-fonte); font-weight: 900; text-transform: uppercase;
+  line-height: 1; letter-spacing: 0.01em; padding: 0.3em 0.58em 0.27em; box-shadow: 10px 10px 0 var(--nv-contorno); }
+.nv-et--vermelha { background: var(--nv-alarme); color: var(--nv-branco); }
+.nv-et--dourada { background: var(--nv-dourado); color: var(--nv-tinta); outline: 5px solid var(--nv-moldura); outline-offset: -5px; }
+.nv-et--azul { background: var(--nv-frio); color: var(--nv-tinta); outline: 5px solid var(--nv-frio-borda); outline-offset: -5px; }
+.nv-et--verde { background: var(--nv-ok); color: var(--nv-tinta); outline: 5px solid var(--nv-tinta); outline-offset: -5px; }
+.nv-et--creme { background: var(--nv-creme); color: var(--nv-tinta); border: 6px solid var(--nv-fundo); box-shadow: 10px 10px 0 var(--nv-fundo); }
+.nv-et--escura { background: var(--nv-fundo); color: var(--nv-claro); box-shadow: 9px 9px 0 var(--nv-moldura); }
+
+/* ---------- 3. balão e emotes ---------- */
+.nv-bl-corpo { position: absolute; width: 0; display: flex; align-items: flex-end; }
+.nv-bl-corpo--centro { left: 0; justify-content: center; }
+.nv-bl-corpo--esq { left: -60px; justify-content: flex-start; }
+.nv-bl-corpo--dir { left: 60px; justify-content: flex-end; }
+.nv-bl { position: relative; flex: none; white-space: nowrap; background: var(--nv-branco); color: var(--nv-contorno);
+  border: 9px solid var(--nv-contorno); font-family: var(--nv-fonte); font-weight: 900; text-transform: uppercase;
+  line-height: 1; letter-spacing: 0.01em; padding: 0.36em 0.58em 0.33em; }
+.nv-bl svg { position: absolute; top: calc(100% - 9px); display: block; }
+.nv-bl--centro svg { left: 50%; margin-left: -36px; }
+.nv-bl--esq svg { left: 51px; }
+.nv-bl--dir svg { right: 51px; transform: scaleX(-1); }
+.nv-emote { position: absolute; display: block; overflow: visible; }
+
+/* ---------- 4. barra de jogo ---------- */
+.nv-barra { position: absolute; left: 72px; width: 936px; height: 120px; }
+.nv-barra-caixa { position: absolute; top: 0; height: 120px; background: var(--nv-fundo); border: 6px solid var(--nv-moldura);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; font-family: var(--nv-fonte);
+  font-weight: 900; text-transform: uppercase; line-height: 1; }
+.nv-barra-relogio { left: 0; width: 300px; } /* 300: «40 DIAS» a 50 px não cabia em 260 */
+.nv-barra-medidor { left: 328px; width: 608px; padding: 0 16px; }
+.nv-barra-rotulo { font-size: 28px; letter-spacing: 0.04em; color: var(--nv-recuado); white-space: nowrap; }
+.nv-barra-valor { font-size: 50px; margin-top: 8px; color: var(--nv-claro); white-space: nowrap; display: flex; }
+.nv-barra-linha { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 12px; }
+.nv-barra-trilho { position: relative; width: 400px; height: 34px; background: var(--nv-trilho); flex: none; }
+.nv-barra-nivel { position: absolute; inset: 0; background: var(--nv-quente); transform-origin: 0 50%; }
+.nv-barra-pct { position: relative; width: 128px; height: 46px; flex: none; }
+.nv-barra-num { position: absolute; right: 0; top: 0; height: 46px; font-size: 46px; line-height: 46px; color: var(--nv-quente);
+  white-space: nowrap; font-variant-numeric: tabular-nums; }
+
+/* ---------- 5. cena ilustrada ---------- */
+.nv-cena { position: absolute; inset: 0; overflow: hidden; background: #000; }
+.nv-cam { position: absolute; inset: 0; transform-origin: 0 0; }
+.nv-plano { position: absolute; inset: 0; }
+.nv-fundo-img { position: absolute; background-repeat: no-repeat; background-size: 100% 100%;
+  filter: blur(calc(var(--nv-desf, 4) * 1px)) brightness(var(--nv-luz, 0.86)) saturate(var(--nv-sat, 0.95)); }
+.nv-frente-img { position: absolute; background-repeat: no-repeat; background-size: 100% 100%;
+  filter: blur(calc(var(--nv-desf, 3) * 1px)) brightness(var(--nv-luz, 1)); }
+.nv-luz { position: absolute; border-radius: 50%; mix-blend-mode: screen; pointer-events: none; }
+.nv-sombra { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,0.55), rgba(0,0,0,0)); }
+.nv-sprite { position: absolute; width: 0; display: flex; justify-content: center; transform-origin: 50% 100%; }
+/* contorno branco do recorte: quatro sombras sem desfoque, ligadas pelo --nv-c (0 px = desligado) */
+.nv-sprite-poses { flex: none; display: grid; --nv-c: 0px; --nv-ca: 0; --nv-sl: 1;
+  filter: brightness(var(--nv-sl))
+    drop-shadow(var(--nv-c) 0 0 rgba(255,255,255,var(--nv-ca))) drop-shadow(calc(var(--nv-c) * -1) 0 0 rgba(255,255,255,var(--nv-ca)))
+    drop-shadow(0 var(--nv-c) 0 rgba(255,255,255,var(--nv-ca))) drop-shadow(0 calc(var(--nv-c) * -1) 0 rgba(255,255,255,var(--nv-ca))); }
+.nv-pose { grid-area: 1 / 1; justify-self: center; align-self: end; display: block; image-rendering: pixelated; }
+
+/* ---------- 7. telefone e telas chapadas ---------- */
+.nv-chapada { position: absolute; inset: 0; background-color: var(--nv-fundo);
+  background-image: radial-gradient(rgba(243, 241, 236, 0.09) 2.2px, transparent 2.8px); background-size: 40px 40px;
+  background-position: 20px 20px; }
+.nv-cel { position: absolute; background: #16181a; border-radius: 68px; box-shadow: inset 0 0 0 3px #3a3d3f; }
+.nv-cel-tela { position: absolute; overflow: hidden; border-radius: 48px; background: var(--nv-fundo-2);
+  font-family: var(--nv-fonte); color: var(--nv-claro); }
+.nv-cel-furo { position: absolute; left: 50%; top: 18px; width: 22px; height: 22px; margin-left: -11px; border-radius: 50%; background: #050606; z-index: 3; }
+.nv-cel-status { position: absolute; left: 0; right: 0; top: 0; height: 58px; padding: 0 40px; display: flex;
+  align-items: center; justify-content: space-between; font-weight: 700; font-size: 28px; z-index: 2; }
+.nv-cel-status i { display: inline-block; width: 46px; height: 20px; border: 3px solid currentColor; border-radius: 6px; position: relative; }
+.nv-cel-status i::after { content: ""; position: absolute; left: 3px; top: 3px; bottom: 3px; width: 62%; background: currentColor; border-radius: 2px; }
+/* conversa */
+.nv-cv-topo { position: absolute; left: 0; right: 0; top: 58px; height: 112px; display: flex; align-items: center;
+  gap: 20px; padding: 0 30px; background: var(--nv-fundo-3); border-bottom: 2px solid rgba(243,241,236,0.10); }
+.nv-cv-voltar { font-weight: 700; font-size: 52px; line-height: 1; color: var(--nv-recuado); margin-top: -6px; }
+.nv-avatar { flex: none; border-radius: 50%; background-color: var(--nv-quente-escuro); background-repeat: no-repeat;
+  image-rendering: pixelated; display: flex; align-items: center; justify-content: center; font-weight: 900; color: var(--nv-claro); overflow: hidden; }
+.nv-cv-nome { font-weight: 700; font-size: 32px; line-height: 1.1; white-space: nowrap; }
+.nv-cv-sub { position: relative; height: 34px; font-weight: 400; font-size: 28px; color: var(--nv-recuado); }
+.nv-cv-sub span { position: absolute; left: 0; top: 2px; white-space: nowrap; }
+.nv-cv-corpo { position: absolute; left: 0; right: 0; top: 170px; bottom: 0; padding: 30px 26px; }
+.nv-msg { position: absolute; max-width: 82%; padding: 18px 24px 16px; border-radius: 28px; font-weight: 700;
+  font-size: 34px; line-height: 1.22; }
+.nv-msg--eles { left: 26px; background: var(--nv-claro); color: var(--nv-tinta); border-bottom-left-radius: 8px; transform-origin: 0 100%; }
+.nv-msg--eu { right: 26px; background: var(--nv-trilho); color: var(--nv-claro); border-bottom-right-radius: 8px; transform-origin: 100% 100%; }
+.nv-msg-hora { display: block; margin-top: 8px; text-align: right; font-weight: 400; font-size: 24px; opacity: 0.75; }
+.nv-msg--digitando { width: 132px; height: 70px; padding: 0; display: flex; align-items: center; justify-content: center; gap: 12px; }
+.nv-msg--digitando b { width: 16px; height: 16px; border-radius: 50%; background: var(--nv-tinta); opacity: 0.35; }
+/* perfil */
+.nv-pf-topo { position: absolute; left: 0; right: 0; top: 58px; height: 84px; display: flex; align-items: center; justify-content: center;
+  font-weight: 900; font-size: 32px; border-bottom: 2px solid rgba(243,241,236,0.10); }
+.nv-pf-cab { position: absolute; left: 30px; right: 30px; top: 168px; display: flex; align-items: center; gap: 26px; }
+.nv-pf-nums { flex: 1; display: flex; justify-content: space-around; text-align: center; }
+.nv-pf-num b { display: block; font-weight: 900; font-size: 44px; line-height: 1.05; }
+.nv-pf-num span { display: block; font-weight: 400; font-size: 28px; color: var(--nv-recuado); }
+.nv-pf-nome { position: absolute; left: 30px; right: 30px; font-weight: 700; font-size: 30px; }
+.nv-pf-bio { position: absolute; left: 30px; right: 30px; font-weight: 400; font-size: 28px; line-height: 1.25; color: var(--nv-recuado); }
+.nv-pf-botao { position: absolute; left: 30px; right: 30px; height: 66px; border-radius: 16px; background: rgba(243,241,236,0.12);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 28px; }
+.nv-pf-grade { position: absolute; left: 0; right: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.nv-pf-post { position: relative; aspect-ratio: 1; display: flex; align-items: center; justify-content: center; padding: 14px;
+  text-align: center; font-weight: 900; font-size: 24px; line-height: 1.1; color: var(--nv-tinta); text-transform: uppercase; overflow: hidden; }
+.nv-pf-views { position: absolute; left: 12px; bottom: 10px; font-weight: 700; font-size: 28px; color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8); text-transform: none; }
+.nv-pf-anel { position: absolute; inset: 0; box-shadow: inset 0 0 0 8px var(--nv-quente); }
+/* post */
+.nv-po-cab { position: absolute; left: 30px; right: 30px; top: 78px; height: 80px; display: flex; align-items: center; gap: 18px; font-weight: 700; font-size: 30px; }
+.nv-po-img { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; padding: 60px;
+  text-align: center; font-weight: 900; font-size: 52px; line-height: 1.1; text-transform: uppercase; color: var(--nv-tinta); }
+.nv-po-acoes { position: absolute; left: 30px; right: 30px; height: 60px; display: flex; gap: 30px; align-items: center; }
+.nv-po-acoes svg { width: 46px; height: 46px; }
+.nv-po-views { position: absolute; left: 30px; right: 30px; font-weight: 700; font-size: 30px; }
+.nv-po-legenda { position: absolute; left: 30px; right: 30px; font-weight: 400; font-size: 28px; line-height: 1.25; color: var(--nv-recuado); }
+.nv-po-insights { position: absolute; left: 30px; right: 30px; height: 76px; border-radius: 18px; border: 3px solid rgba(243,241,236,0.55);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 32px; }
+.nv-po-teia { position: absolute; overflow: visible; pointer-events: none; }
+/* vídeo real */
+.nv-cel-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+
+/* ---------- 8. cartões ---------- */
+.nv-cm-rotulo { position: absolute; left: 100px; right: 100px; text-align: center; font-size: 64px; line-height: 1.08;
+  letter-spacing: 0.01em; color: var(--nv-claro); }
+.nv-cm-trilho { position: absolute; left: 120px; width: 840px; height: 70px; background: var(--nv-trilho); border: 6px solid var(--nv-moldura); transform-origin: 0 50%; }
+.nv-cm-nivel { position: absolute; inset: 0; background: var(--nv-quente); transform-origin: 0 50%; }
+.nv-cm-pct { flex: none; font-size: 200px; line-height: 1; color: var(--nv-alarme-vivo); --nv-traco: 26px; white-space: nowrap; }
+
+/* o creme cobre a tela toda: enquanto as metades entram, o vão entre elas é claro, como na referência */
+.nv-op-faixa-topo { position: absolute; inset: 0; background: var(--nv-claro); }
+.nv-op-metade { position: absolute; top: 480px; bottom: 0; width: 540px; overflow: hidden; }
+.nv-op-metade--esq { left: 0; background: var(--nv-quente-claro); }
+.nv-op-metade--dir { left: 540px; background: var(--nv-frio); }
+.nv-op-nome { position: absolute; left: 20px; right: 20px; top: 50px; text-align: center; white-space: nowrap; font-size: 96px; line-height: 1;
+  color: var(--nv-branco); --nv-traco: 16px; }
+.nv-op-acao { position: absolute; left: 40px; right: 40px; top: 176px; text-align: center; font-size: 31px; line-height: 1.16; letter-spacing: 0.02em; color: var(--nv-tinta); }
+.nv-op-custo { position: absolute; left: 40px; right: 40px; top: 268px; text-align: center; font-weight: 700; font-size: 28px; line-height: 1.2; letter-spacing: 0.03em; color: var(--nv-tinta); }
+.nv-op-custo b { font-weight: 900; }
+.nv-op-ou { flex: none; position: absolute; left: 476px; top: 1046px; width: 128px; height: 128px; border-radius: 50%; background: var(--nv-claro);
+  border: 8px solid var(--nv-fundo); color: var(--nv-fundo); font-size: 48px; line-height: 1; display: flex; align-items: center; justify-content: center; }

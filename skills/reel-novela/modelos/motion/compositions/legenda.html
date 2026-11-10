@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Legenda da novela, por cima de todas as cenas (estilo e montagem em assets/novela/: .nv-lg-* e
+           NOVELA.legenda). Caixa-alta Montserrat 900, branca com contorno escuro, palavra-chave em vermelho;
+           linha de base em y 1560 (~81 % da altura), dentro de x 110–950; 1 a 3 palavras, palavra por palavra.
+           Fonte: componentes/legenda.html da série (sincronizar.py copia para compositions/legenda.html). */
+        #root { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        #lg-palco { position: absolute; inset: 0; }
+      </style>
+
+      <div id="root" data-composition-id="legenda" data-width="1080" data-height="1920"><div id="lg-palco" data-layout-allow-caption-zone></div></div>
+
+      <!-- os grupos: gerados pelo briefings/legenda-grupos.cjs a partir do briefings/palavras-voz.json.
+           Cores: --a = palavra-chave (vermelho), --b = nome ou número em destaque (ouro), --e = palavra do CTA
+           (vermelho, 1,12 em), --n = branco. O script agrupa de 2 a 4; aqui o grupo maior que MAX se divide ao meio. -->
+      <script src="assets/legenda-grupos.js"></script>
+      <script>
+        (function () {
+          const MAX = 3; // palavras por linha (a referência usa 1 a 3)
+          // A legenda vive no tempo real (sem VOZ.w): os tempos do assets/legenda-grupos.js entram direto.
+          NOVELA.pronto(() => {
+            const palco = NOVELA.raizDe("legenda").querySelector("#lg-palco");
+            const host = [...document.querySelectorAll("[data-composition-src]")].find((e) => e.getAttribute("data-composition-id") === "legenda");
+            const fimJanela = host ? parseFloat(host.getAttribute("data-duration")) : Infinity;
+            const tl = NOVELA.legenda(palco, window.LEGENDA_GRUPOS || [], { max: MAX, base: 1560, corpo: 62, fimJanela });
+            window.__timelines["legenda"] = tl;
+          });
+        })();
+      </script>
+    </template>
+  </body>
+</html>

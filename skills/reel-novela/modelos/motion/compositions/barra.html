@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Barra de jogo (camada própria, por cima dos atos, janela do vídeo inteiro). Dona: a sessão principal; nenhum
+           agente de ato mexe aqui. Componente: NOVELA.barra (assets/novela/), y 240–360, relógio x 72–332 e medidor
+           x 360–1008. Os eventos vêm de assets/barra-eventos.js, GERADO pelo montar_projeto.py a partir da lista `barra`
+           do roteiro.json (cada evento preso a uma palavra). Não edite os tempos aqui: mude o roteiro e rode de novo. */
+        #root { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+      </style>
+
+      <div id="root" data-composition-id="barra" data-width="1080" data-height="1920"></div>
+
+      <script src="assets/barra-eventos.js"></script>
+      <script>
+        (function () {
+          // Tempos do código (o tempo da narração em que as cenas foram escritas); VOZ.w leva ao tempo real.
+          // Verbos de evento: relogio (cai de cima) · relogio_muda (gira para `dias`, roleta de `giro` = [de, até] s
+          // depois de `t`) · medidor (cai de cima) · sai (sobe e sai) · corte (some em 0,02 s) · volta (refaz y e opacidade).
+          // O gêmeo do giro, para o som dos tiques, está em assets/roletas.js («br-dias…», mesma semente).
+          const INICIO = 0;
+          const T0 = VOZ.w(INICIO);
+          const a = (t) => +(VOZ.w(t) - T0).toFixed(3);
+          NOVELA.pronto(() => {
+            const B = window.BARRA || { eventos: [] };
+            const tl = gsap.timeline({ paused: true });
+            const R = NOVELA.raizDe("barra");
+            const cfg = {};
+            if (B.dias !== undefined) cfg.dias = B.dias;
+            if (B.rotulo !== undefined) cfg.rotulo = B.rotulo;
+            if (B.valor !== undefined) cfg.valor = B.valor;
+            const b = NOVELA.barra(R, cfg);
+            for (const e of B.eventos) {
+              if (e.faz === "relogio") tl.add(b.entradaRelogio(), a(e.t));
+              else if (e.faz === "relogio_muda") {
+                const g = e.giro || [0.45, 0.70];
+                tl.add(b.contar(e.dias, { semente: e.dias * 100 + 1, de: +(a(e.t + g[0]) - a(e.t)).toFixed(3), ate: +(a(e.t + g[1]) - a(e.t)).toFixed(3) }), a(e.t));
+              }
+              else if (e.faz === "medidor") tl.add(b.entradaMedidor(), a(e.t));
+              else if (e.faz === "sai") tl.add(b.saida(), a(e.t));
+              else if (e.faz === "corte") tl.to([b.relogio, b.medidor], { autoAlpha: 0, duration: 0.02, ease: "none" }, a(e.t));
+              else if (e.faz === "volta") tl.add(b.volta(), a(e.t));
+            }
+            window.__timelines["barra"] = tl;
+          });
+        })();
+      </script>
+    </template>
+  </body>
+</html>

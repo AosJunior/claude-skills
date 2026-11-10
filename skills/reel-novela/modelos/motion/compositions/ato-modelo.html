@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+  </head>
+  <body>
+    <template>
+      <style>
+        /* Ato {{ATO}}: {{BLOCOS}}. Janela {{JANELA}} (tempo real). Briefing: briefings/ato{{ATO}}.md · régua: briefings/_regua.md.
+           Prefixo de id e classe: a{{ATO}}-. Dono: o agente do ato{{ATO}} (só este arquivo e assets/ato{{ATO}}/). */
+        #root { position: absolute; inset: 0; overflow: hidden; }
+      </style>
+
+      <div id="root" data-composition-id="ato{{ATO}}" data-width="1080" data-height="1920"></div>
+
+      <script>
+        (function () {
+          // Ledger de emendas (tempo · objeto · eixo · como):
+          const INICIO = {{INICIO}};                       // início do ato no tempo do código
+          const T0 = VOZ.w(INICIO);                        // = data-start do ato no index.html
+          const a = (t) => +(VOZ.w(t) - T0).toFixed(3);    // tempo do código → tempo local
+          NOVELA.pronto(() => {
+            const tl = gsap.timeline({ paused: true });
+            const R = NOVELA.raizDe("ato{{ATO}}");
+            // monte a cena aqui: tl.add(componente.metodo(), a(<palavra>))
+            window.__timelines["ato{{ATO}}"] = tl;
+          });
+        })();
+      </script>
+    </template>
+  </body>
+</html>
