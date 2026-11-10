@@ -13,16 +13,19 @@ narração inteira (média de energia do loudness momentâneo nas falas), no gan
 das palavras do palavras-voz.json (o de --palavras ou o que estiver ao lado da narração, ou em briefings/ ao lado
 dela), como no mixar.py; sem ele, da energia da própria narração. Loudness momentâneo: 400 ms, ponderação K.
 - sob a fala: a média e o trecho mais alto (o percentil de 95 %; um pico isolado sai à parte, quase sempre efeito);
-- respiros de 0,5 s ou mais e o fim: a música no meio de cada um.
+- respiros de 0,5 s ou mais e o fim: a média da música no patamar de cada um (de 0,4 s depois da palavra a 0,4 s antes
+  da seguinte; no último, até 0,2 s antes do fade_out). Respiro sem patamar lê o instante do meio.
 Régua (a música em LU abaixo da voz): sob a fala, média de -21,5 a -19,5 (o alvo é -20); respiros de 0,8 s ou mais,
-de -6,5 a -9,5. Os de 0,5 s leem uns -10, porque a música só abre 0,2 s. O respiro com mergulho fica lá embaixo de
-propósito: com as revelações do mix.json, ele sai marcado e fora da régua, pela mesma regra do mixar.py (revelação
+de -6,5 a -9,5. Os de 0,5 s leem uns -10, porque a música só abre 0,2 s. O último respiro, que acaba no fade_out
+do mix.json (0,5 s), só entra na régua se sobrar patamar: pelo menos 1,1 s entre a última palavra e o fim da música.
+O respiro com mergulho fica lá embaixo de propósito: com as revelações do mix.json, ele sai marcado e fora da régua, pela mesma regra do mixar.py (revelação
 dentro do respiro, com a medida no mergulho, ou logo depois dele, que não deixa a música subir).
 Com "trilha.fora" no mix.json (a música sai, ex.: a aula da novela), essas janelas saem das contas de fala e o respiro
 que as contém sai marcado «fora» e não conta na régua.
 
---sem      a entrega sem trilha. Sem ele, o script procura o par pelo nome: "-com-trilha" → "-sem-trilha", ou
-           "<nome>-sem-trilha" (o par do --trecho do mixar.py).
+--sem      a entrega sem trilha. Sem ele, o script procura o par pelo nome ("-com-trilha" → "-sem-trilha", ou
+           "<nome>-sem-trilha") ao lado da entrega (o par do --trecho do mixar.py) e em sequencia/som/medida/, ao lado
+           do mix.json (onde o mixar.py --sem-trilha o grava para a entrega: exports/ guarda só o final).
 --mix      o mix.json da peça, de onde saem as revelações. Sem ele, o script procura sequencia/som/mix.json subindo a
            partir da pasta da entrega.
 --inicio   onde a entrega começa na narração, em s (prévia de um --trecho que não começa no 0).
@@ -69,16 +72,20 @@ def com_mergulho(p0, p1, c, revelacoes, folga):
     return False
 
 
-def par_sem_trilha(com):
+def par_sem_trilha(com, mixp=None):
+    """A entrega sem trilha: ao lado da com trilha (o par do --trecho), ou em sequencia/som/medida/, ao lado do mix.json
+    (onde o mixar.py --sem-trilha a grava; exports/ guarda só o final)."""
     nome = com.name
-    candidatos = []
+    nomes = []
     if "com-trilha" in nome:
-        candidatos.append(com.with_name(nome.replace("com-trilha", "sem-trilha")))
-    candidatos.append(com.with_name(com.stem + "-sem-trilha" + com.suffix))
+        nomes.append(nome.replace("com-trilha", "sem-trilha"))
+    nomes.append(com.stem + "-sem-trilha" + com.suffix)
+    pastas = [com.parent] + ([mixp.parent / "medida"] if mixp else [])
+    candidatos = [p / n for p in pastas for n in nomes]
     for c in candidatos:
         if c.is_file():
             return c
-    sair(f"Não achei a entrega sem trilha de {nome} (tentei {', '.join(c.name for c in candidatos)}). "
+    sair(f"Não achei a entrega sem trilha de {nome} (tentei {', '.join(str(c) for c in candidatos)}). "
          "Gere com o mixar.py --sem-trilha (com o mesmo --trecho) ou passe --sem <arquivo>.")
 
 
@@ -107,12 +114,12 @@ def main():
         sair(__doc__)
     com = Path(a[0]).expanduser()
     voz = Path(a[a.index("--voz") + 1]).expanduser()
-    sem = Path(a[a.index("--sem") + 1]).expanduser() if "--sem" in a else par_sem_trilha(com)
+    mixp = achar_mix(com, a)
+    sem = Path(a[a.index("--sem") + 1]).expanduser() if "--sem" in a else par_sem_trilha(com, mixp)
     inicio = segundos(a[a.index("--inicio") + 1]) if "--inicio" in a else 0.0
     for p in (com, voz, sem):
         if not p.is_file():
             sair(f"Não achei {p}")
-    mixp = achar_mix(com, a)
     trilha = (ler_json(mixp).get("trilha") or {}) if mixp else {}
     revelacoes = [float(r) for r in trilha.get("revelacoes", [])]
     folga = float(trilha.get("folga", 0.15))
@@ -177,15 +184,32 @@ def main():
     if abaixo[i_pico] < alto - 2:
         print(f"   pico isolado: {fmt_num(-abaixo[i_pico])} em {fmt_num(t[dentro][i_pico], 2)} s (quase sempre um efeito)")
 
-    # respiros: a música no meio de cada um (no fim, 0,75 s depois da última palavra)
+    # respiros: a média de energia da música no patamar de cada um. A janela de 400 ms só lê o patamar inteiro a
+    # 0,4 s das bordas (a música sobe 0,19 s depois da palavra e desce 0,19 s antes da seguinte); no último respiro, o
+    # patamar acaba 0,2 s antes do fade_out, que abaixa a música até o fim do vídeo. Um instante só dava -10,1 num
+    # respiro final de 1,7 s: a música de teste tem quedas de ~2,5 dB a cada meio segundo, e o ponto caía numa delas.
+    # Respiro sem patamar (menos de 0,8 s, ou colado ao fade) lê o instante do meio, como antes.
+    fim_musica = float(trilha.get("fim", fim_t))
+    fade_out = float(trilha.get("fade_out", 0.5))
     resp = []
     for p0, p1 in pausas:
         if p0 < t[0] or p0 >= fim_t - 0.2:
             continue
-        c = (p0 + p1) / 2 if p1 < fim_t else min(fim_t, p0 + 0.75)
-        i = int(np.clip(round((c - t[0]) / HOP), 0, k - 1))
+        ultimo = p1 >= fim_t
+        c = (p0 + p1) / 2 if not ultimo else min(fim_t, p0 + 0.75)
         tira = any(p0 < f1 and p1 > f0 for f0, f1 in janelas_fora)   # a pausa contém uma janela «fora»
-        resp.append((p0, min(p1, fim_t), min(p1, fim_t) - p0, V - lm[i], com_mergulho(p0, p1, c, revelacoes, folga), tira))
+        a0 = p0 + 0.4
+        b0 = (min(p1, fim_musica - fade_out) - 0.2) if ultimo else (p1 - 0.4)
+        if b0 - a0 >= HOP and not tira:
+            ia, ib = (int(np.clip(round((x - t[0]) / HOP), 0, k - 1)) for x in (a0, b0))
+            nivel, patamar = V - media_energia(lm[ia:ib + 1]), True
+        else:
+            i = int(np.clip(round((c - t[0]) / HOP), 0, k - 1))
+            nivel, patamar = V - lm[i], False
+        # último respiro colado ao fade (sem patamar): a música já desce, e a régua não se aplica a ele
+        curto = ultimo and not patamar and p1 - p0 >= 0.8
+        resp.append((p0, min(p1, fim_t), min(p1, fim_t) - p0, nivel, com_mergulho(p0, p1, c, revelacoes, folga), tira,
+                     curto))
     ok = -21.5 <= -media <= -19.5
     print(f"revelações: {len(revelacoes)}, do {mixp.name if mixp else '(sem mix.json: nenhuma)'}")
     if janelas_fora:
@@ -195,11 +219,12 @@ def main():
         if contam:
             print(f"respiros de 0,5 s ou mais ({len(contam)}): de {fmt_num(-max(r[3] for r in contam))} a "
                   f"{fmt_num(-min(r[3] for r in contam))}")
-        for t0, t1, dur, d, merg, tira in resp:
+        for t0, t1, dur, d, merg, tira, curto in resp:
             print(f"   {fmt_num(t0, 2):>6}–{fmt_num(t1, 2):<6} ({fmt_num(dur, 2)} s): {fmt_num(-d)}"
                   + ("  «fora»: a música sai aqui, não conta" if tira else "")
-                  + ("  mergulho da revelação: não conta" if merg else ""))
-        fora = [r for r in contam if r[2] >= 0.8 and not r[4] and not 6.5 <= r[3] <= 9.5]
+                  + ("  mergulho da revelação: não conta" if merg else "")
+                  + ("  colado ao fade_out: sem patamar para medir, não conta" if curto else ""))
+        fora = [r for r in contam if r[2] >= 0.8 and not r[4] and not r[6] and not 6.5 <= r[3] <= 9.5]
         if fora:
             print("respiros longos fora de -6,5 a -9,5: " + ", ".join(f"{fmt_num(r[0], 2)} s ({fmt_num(-r[3])})"
                                                                     for r in fora))

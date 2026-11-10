@@ -8,7 +8,7 @@ ease, vale o `movimento.md`.
 
 ## Comando
 
-Um só para todos, com a versão travada: `npx --yes hyperframes@0.9.6 <comando>`, na raiz do projeto motion
+Um só para todos, com a versão travada: `npx --yes hyperframes@0.9.26 <comando>`, na raiz do projeto motion
 (`epNN/sequencia/motion/`). As cópias de `hyperframes/` são de uma versão anterior (0.8.200); o que mudou de uma para
 outra, o `--help` do comando diz.
 
@@ -61,12 +61,12 @@ rolagem. Todos os plugins são gratuitos e vêm no pacote `gsap`. A biblioteca n
 
 ## Conferir sem gastar
 
-- `npx --yes hyperframes@0.9.6 check`: lint, runtime, layout e contraste num passo. Com erro de lint, os outros não
+- `npx --yes hyperframes@0.9.26 check`: lint, runtime, layout e contraste num passo. Com erro de lint, os outros não
   rodam, e «0 samples» não quer dizer limpo.
-- `npx --yes hyperframes@0.9.6 snapshot --at <t1>,<t2>,… --no-end`: quadros nas palavras-gatilho, nunca a sequência
+- `npx --yes hyperframes@0.9.26 snapshot --at <t1>,<t2>,… --no-end`: quadros nas palavras-gatilho, nunca a sequência
   inteira. Os tempos são reais (`node briefings/tempo-real.cjs <t> …`).
-- `npx --yes hyperframes@0.9.6 compare "<pasta A>" "<pasta B>" --at <t> --labels "A,B" --out <png>`: duas direções
+- `npx --yes hyperframes@0.9.26 compare "<pasta A>" "<pasta B>" --at <t> --labels "A,B" --out <png>`: duas direções
   lado a lado num quadro, sem render (passe as pastas inteiras do projeto).
-- `npx --yes hyperframes@0.9.6 measure events "<vídeo>" --map --out <pasta>`: janelas em que a tela muda, paradas
+- `npx --yes hyperframes@0.9.26 measure events "<vídeo>" --map --out <pasta>`: janelas em que a tela muda, paradas
   (`holds`) e ataques do som, num JSON curto. Serve para medir um vídeo de referência e para a revisão.
 - O render é do `entregar.py` (`scripts/README.md`), em rascunho para direção e uma vez em qualidade de entrega.

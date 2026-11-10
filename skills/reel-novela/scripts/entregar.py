@@ -31,6 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import _novela as N  # noqa: E402
 
 TOLERANCIA_S = 0.10
+RUIDO = re.compile(r"(samples|craft|overlap|analyze) \d+/\d+|@hf-progress|Render:trace")
 
 
 def versao_hyperframes(proj):
@@ -39,11 +40,22 @@ def versao_hyperframes(proj):
     return m.group(0) if m else N.HYPERFRAMES
 
 
-def rodar_vivo(cmd, cwd):
+def rodar_vivo(cmd, cwd, mostrar=False):
+    """Roda e devolve (código, saída). Com mostrar=True a saída aparece linha a linha enquanto roda (o render e o check
+    demoram minutos; sem isso a pessoa fica olhando uma tela parada)."""
     cmd = [str(c) for c in cmd]
     cmd[0] = shutil.which(cmd[0]) or cmd[0]   # no Windows, npx é npx.cmd: o caminho completo o acha
-    r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
-    return r.returncode, (r.stdout + r.stderr)
+    if not mostrar:
+        r = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        return r.returncode, (r.stdout + r.stderr)
+    p = subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                         encoding="utf-8", errors="replace", bufsize=1)
+    linhas = []
+    for linha in p.stdout:
+        linhas.append(linha)
+        if not RUIDO.search(linha):   # o contador de cada amostra e os rastros de baixo nível só enchem a tela
+            print("    " + linha.rstrip()[:160], flush=True)
+    return p.wait(), "".join(linhas)
 
 
 def medir(mp4):
@@ -95,12 +107,13 @@ def main():
     falhas = []
 
     if not a.sem_check:
-        rc, out = rodar_vivo(["npx", "--yes", ver, "check"], proj)
+        print(f"check ({ver}): rodando. Na primeira vez em cada computador o npx baixa o HyperFrames e leva uns minutos...",
+              flush=True)
+        rc, out = rodar_vivo(["npx", "--yes", ver, "check"], proj, mostrar=True)
         avisos = [l.strip() for l in out.splitlines() if "⚠" in l or "✗" in l or "error" in l.lower() and "0 error" not in l.lower()]
         print(f"check ({ver}): {'passou' if rc == 0 else 'FALHOU'}" + ("".join("\n    " + l[:150] for l in avisos[:8]) if avisos else ""))
         if rc:
             falhas.append("check do HyperFrames")
-            print(out[-1200:])
         rc2, out2 = rodar_vivo(["node", "briefings/conferir-faixa.cjs"], proj)
         print(f"conferir-faixa (texto abaixo de y 1430): {'passou' if rc2 == 0 else 'FALHOU'}")
         if rc2:
@@ -132,10 +145,10 @@ def main():
         else:
             mp4 = renders / f"{slug}-{ep.name}-1080.mp4"
             extra = ["-q", "delivery", "-w", "4"]
-        print(f"render {'de rascunho' if a.rascunho else 'de ENTREGA'} → {mp4.name} (alguns minutos)")
-        rc, out = rodar_vivo(["npx", "--yes", ver, "render", "-o", mp4] + extra, proj)
+        print(f"render {'de rascunho' if a.rascunho else 'de ENTREGA'} → {mp4.name}: de 1 a 2 min por minuto de vídeo "
+              "(mais de 5 min na entrega de um episódio inteiro), e o progresso aparece abaixo...", flush=True)
+        rc, out = rodar_vivo(["npx", "--yes", ver, "render", "-o", mp4] + extra, proj, mostrar=True)
         if rc or not mp4.is_file():
-            print(out[-1200:])
             print("FALHOU: render. Veja a saída acima.")
             sys.exit(1)
 
@@ -156,8 +169,10 @@ def main():
     if falhas:
         print("FALHOU: " + "; ".join(falhas))
         sys.exit(1)
-    print("Tudo certo." + (" Rascunho: confira a folha e, só depois da passada de direção, rode sem --rascunho."
-                           if a.rascunho else " Siga para o som (passos 8 e 9)."))
+    print("Tudo certo." + (" Rascunho: julgue a folha de contato e as emendas (passo 7.8). Aprovado, siga para o som "
+                           "(passo 8); o render de entrega, sem --rascunho, é do passo 10."
+                           if a.rascunho else " Entrega renderizada: aponte o `video` do mix.json para ela, mixe de novo e "
+                           "confira as medidas de som.md (passo 10, item 1)."))
 
 
 if __name__ == "__main__":

@@ -13,6 +13,7 @@ achar_marca e os caminhos marca/ são iguais. Sai com código 1 na primeira dife
 """
 import hashlib
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -125,6 +126,13 @@ out["marca"] = str(m)
 out["marca_atalho"] = str(comum.achar_marca(Path(tree) / "atalho"))
 out["caminho"] = str(contrato.caminho("marca/cor/look.cube", Path(tree) / "edicao" / "videos" / "v" / "som", m))
 out["relativo"] = str(contrato.caminho("../insercoes/x.mp4", Path(tree) / "edicao" / "videos" / "v" / "som", m))
+# limite da busca: a pasta pessoal (HOME falso = <tree>/acima/casa) e nunca acima dela
+casa = Path(tree) / "acima" / "casa"
+out["limite_casa"] = [str(contrato.achar_marca(casa / d) or "None") for d in
+                      ("com-marca/videos/v", "sem-marca/videos/v", ".")]
+out["limite"] = [str(contrato.limite_busca(casa / "sem-marca" / "videos" / "v")), str(contrato.limite_busca(casa)),
+                 str(contrato.limite_busca("/Volumes/Disco/edicao/videos/v")),
+                 str(contrato.limite_busca(Path(tree) / "edicao" / "videos" / "v"))]
 try:
     contrato.caminho("marca/cor/look.cube", tree, None)
     out["sem_marca"] = "sem erro"
@@ -157,11 +165,19 @@ def main():
         (tmp / "edicao" / "marca" / "estilo.md").write_text("# estilo\n", encoding="utf-8")
         (tmp / "edicao" / "videos" / "v" / "som").mkdir(parents=True)
         (tmp / "atalho").symlink_to(tmp / "edicao" / "videos" / "v")
+        casa = tmp / "acima" / "casa"          # HOME falso; tmp/acima/marca fica ACIMA dele e não pode valer
+        (tmp / "acima" / "marca").mkdir(parents=True)
+        (tmp / "acima" / "marca" / "estilo.md").write_text("# fora do alcance\n", encoding="utf-8")
+        (casa / "com-marca" / "marca").mkdir(parents=True)
+        (casa / "com-marca" / "marca" / "estilo.md").write_text("# estilo\n", encoding="utf-8")
+        (casa / "com-marca" / "videos" / "v").mkdir(parents=True)
+        (casa / "sem-marca" / "videos" / "v").mkdir(parents=True)
+        ambiente = {**os.environ, "HOME": str(casa), "USERPROFILE": str(casa)}
         entrada = json.dumps({"ancoras": [[v, fim] for v, fim, _ in CASOS], "encostar": [t for t, _ in ENCOSTAR]})
         res = {}
         for s in SKILLS:
             r = subprocess.run([sys.executable, "-I", "-c", SONDA, str(arqs[s].parent), str(exemplo), str(tmp)],
-                               input=entrada, capture_output=True, text=True, encoding="utf-8")
+                               input=entrada, env=ambiente, capture_output=True, text=True, encoding="utf-8")
             if r.returncode:
                 falha(f"/{s}: o comum.py não importou:\n{r.stderr[-1500:]}")
             res[s] = json.loads(r.stdout)
@@ -169,7 +185,8 @@ def main():
                 falha(f"/{s}: o comum.py carregou outro contrato.py ({res[s]['contrato']})")
         base = res[SKILLS[0]]
         for s in SKILLS[1:]:
-            for k in ("ancoras", "porta", "encostar", "marca", "marca_atalho", "caminho", "relativo", "sem_marca"):
+            for k in ("ancoras", "porta", "encostar", "marca", "marca_atalho", "caminho", "relativo", "sem_marca",
+                      "limite", "limite_casa"):
                 if res[s][k] != base[k]:
                     falha(f"/{s} difere de /{SKILLS[0]} em {k}:\n  {res[s][k]}\n  {base[k]}")
         for (v, fim, esperado), got in zip(CASOS, base["ancoras"]):
@@ -192,10 +209,17 @@ def main():
             falha(f"achar_marca: {base['marca']} · pelo atalho: {base['marca_atalho']}")
         if base["caminho"] != str(tmp / "edicao" / "marca" / "cor" / "look.cube") or base["sem_marca"] != "ERRO":
             falha(f"caminho marca/: {base['caminho']} · sem marca: {base['sem_marca']}")
+        casa = tmp / "acima" / "casa"
+        esperado_casa = [str(casa / "com-marca" / "marca"), "None", "None"]   # nem a marca acima de ~, nem fora
+        if base["limite_casa"] != esperado_casa:
+            falha(f"achar_marca perto da pasta pessoal: {base['limite_casa']} (esperava {esperado_casa})")
+        esperado_lim = [str(casa), str(casa), "/Volumes/Disco", Path(tmp).anchor]
+        if base["limite"] != esperado_lim:
+            falha(f"limite_busca: {base['limite']} (esperava {esperado_lim})")
         if base["relativo"] != str(tmp / "edicao" / "videos" / "v" / "insercoes" / "x.mp4"):
             falha(f"caminho relativo: {base['relativo']}")
     print(f"ok: contrato.py igual nas 4 skills ({hashes['decupar']}); {len(CASOS)} tempos, {len(ENCOSTAR)} bordas, "
-          "achar_marca e caminhos dão o mesmo resultado em /" + ", /".join(SKILLS))
+          "achar_marca (sem passar da pasta pessoal) e caminhos dão o mesmo resultado em /" + ", /".join(SKILLS))
 
 
 if __name__ == "__main__":

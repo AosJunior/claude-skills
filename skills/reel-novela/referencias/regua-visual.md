@@ -162,12 +162,12 @@ para ocupar a faixa dela.
 
 Depois de cada mudança, na raiz do projeto motion:
 
-1. `npx --yes hyperframes@0.9.6 check`, sem erro do seu arquivo. O `first_frame_empty` pode acusar à toa com algo
+1. `npx --yes hyperframes@0.9.26 check`, sem erro do seu arquivo. O `first_frame_empty` pode acusar à toa com algo
    legível no quadro 0; o `line_unread` nos dígitos da roleta é falso positivo.
 2. `node briefings/conferir-faixa.cjs`, sem erro: acusa texto de cena abaixo de y 1430. Texto escondido sob máscara
    também conta: ele nasce de um recorte, em vez de esperar sob a máscara na faixa da legenda.
 3. Snapshot no tempo real: `node briefings/tempo-real.cjs <tempos>` e
-   `npx --yes hyperframes@0.9.6 snapshot --at <t1>,<t2>,… --no-end`, um quadro em cada palavra-gatilho, mais um na
+   `npx --yes hyperframes@0.9.26 snapshot --at <t1>,<t2>,… --no-end`, um quadro em cada palavra-gatilho, mais um na
    entrada e um na saída do ato. Abra cada PNG; o comando diz a pasta.
 
 Em cada quadro:

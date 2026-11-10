@@ -172,7 +172,10 @@ o efeito some.
 
 ## Mixagem
 
-Um mapa só (`<ep>/sequencia/som/mix.json`), com o `video` apontando para o render de rascunho ou de entrega:
+Um mapa só (`<ep>/sequencia/som/mix.json`), com o `video` apontando para o render de rascunho ou de entrega.
+`<slug>` é o nome da pasta da série sem a data do começo (`2026-11-10-doceria` vira `doceria`; a pasta `serie` vira
+`serie`), do jeito que o `entregar.py` nomeia o render (`<slug>-epNN-rascunho.mp4`, `<slug>-epNN-1080.mp4`), e a
+entrega é `<slug>-epNN.mp4`:
 
 ```
 uv run "<pasta desta skill>/scripts/mixar.py" "<ep>/sequencia/som/mix.json"                 com trilha
@@ -180,8 +183,11 @@ uv run "<pasta desta skill>/scripts/mixar.py" "<ep>/sequencia/som/mix.json" --se
 uv run "<pasta desta skill>/scripts/mixar.py" "<ep>/sequencia/som/mix.json" --trecho <ini> <fim>   prévia de um pedaço
 ```
 
-Rode só a forma que a bíblia pede. A saída vai para o campo `saida` (com trilha) ou `saida_sem_trilha` do `mix.json`;
-aponte os dois para `../exports/<slug>-epNN.mp4`, sem número de versão.
+Rode a forma que a bíblia pede. Com trilha, a entrega é o campo `saida`: `../exports/<slug>-epNN.mp4`, sem número de
+versão. A cópia sem trilha (`--sem-trilha`) é só para medir: `saida_sem_trilha` aponta para
+`medida/<slug>-epNN-sem-trilha.mp4`, ao lado do `mix.json` (`sequencia/som/medida/`), porque `exports/` guarda só o
+final; sem o campo, o `mixar.py` já grava ali. Só com efeitos, a entrega é a própria `--sem-trilha`, e aí
+`saida_sem_trilha` é `../exports/<slug>-epNN.mp4`.
 
 - **Voz:** passa-altas e compressor suave 2:1, nada mais.
 - **Trilha:** o nivelador da curva-alvo.
@@ -219,13 +225,26 @@ manda é o volume medido.
 | Volume e pico | o fim do `mixar.py` | −14 LUFS (±0,5); pico de −1,5 dBTP ou menos |
 | Ganho da voz | `uv run "<pasta desta skill>/scripts/ganho_voz.py" "<entrega>" --voz "<voz>"` | variação de 0,3 dB ou menos |
 | Trilha sob a fala e nos respiros | `uv run "<pasta desta skill>/scripts/medir.py" "<entrega>" --voz "<voz>"` (só com trilha) | −21,5 a −19,5 sob a fala; −7 a −9 nos respiros de 0,8 s ou mais |
-| Fala do narrador | `uv run "<pasta desta skill>/scripts/ouvir.py" "<entrega>" --base "<sem trilha>" --de MM:SS --ate MM:SS` | 95 % ou mais, numa janela que começa e acaba em pausa |
+| Fala do narrador | `uv run "<pasta desta skill>/scripts/ouvir.py" "<entrega>" --base "<sem trilha>" --de MM:SS --ate MM:SS` (frações valem: `00:09.8`) | 95 % ou mais, numa janela que começa e acaba em pausa |
 | Fala da aula | o mesmo `ouvir.py`, na janela `aula_ini`–`aula_fim` | 95 % ou mais |
 | Soma dos efeitos | o fim do `efeitos.py` | pico de −1 dBFS ou menos |
 
-- O `medir.py` precisa da versão sem trilha ao lado, pelo nome: rode uma vez `mixar.py --sem-trilha` para a medida,
-  mesmo quando a entrega é com trilha, e apague essa cópia depois. O respiro com mergulho e a janela `fora` ficam fora
-  da régua.
+- O `medir.py` precisa da versão sem trilha: rode uma vez `mixar.py --sem-trilha` para a medida, mesmo quando a entrega
+  é com trilha. Ela fica em `sequencia/som/medida/` (o `medir.py` a acha ali sozinho, pelo nome da entrega; `--sem
+  <arquivo>` aponta outra) e nunca em `exports/`. O `ouvir.py` usa a mesma como `--base`. Apague a pasta `medida/` depois
+  de postar. O respiro com mergulho e a janela `fora` ficam fora da régua.
+- **O respiro é medido pela média no patamar**, não por um instante: de 0,4 s depois da última palavra a 0,4 s antes
+  da seguinte (a janela de 400 ms só lê o nível cheio a essa distância das rampas de 0,19 s). No último respiro o
+  patamar acaba 0,2 s antes do `fade_out` (0,5 s) da trilha, que abaixa a música até o fim do vídeo. Respiro de 0,8 s
+  ou mais tem patamar; o último, só se sobrar pelo menos 1,1 s entre a última palavra e o fim da música: mais curto
+  que isso a música já está descendo no fade, o `medir.py` o marca «colado ao fade_out» e ele fica fora da régua.
+  Por quê: num piloto de 12,7 s a medida num instante dava −10,1 num respiro final de 1,7 s, mas o `fade_out` não era a
+  causa (com 0,01 s deu o mesmo −10,1): a música de teste cai uns 2,5 dB a cada 0,5 s e o instante caía numa queda; a
+  média do patamar deu −8,0, dentro da régua. O nivelador só segura a música para baixo, e a média no patamar é a
+  mesma conta da média sob a fala.
+- O `ouvir.py` aceita o tempo em `MM:SS`, `MM:SS.d` ou `MM:SS,dd` (frações valem: `--de 00:09.8 --ate 00:12.5`) e em
+  segundos (`--de 9.8`). Dica: comece e acabe numa pausa, e na primeira vez ele instala o Whisper (uns 4 min num trecho
+  curto).
 - Na entrega só com efeitos, a medida da trilha não se aplica, e o `ouvir.py` roda com a própria entrega como `--base`.
 
 ## Créditos

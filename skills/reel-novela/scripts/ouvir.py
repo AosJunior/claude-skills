@@ -12,6 +12,7 @@ Uso:  uv run "<skill>/scripts/ouvir.py" "<vídeo com som>" --base "<vídeo sem t
 Transcreve o mesmo pedaço nos dois vídeos (com Whisper, no computador) e compara: quantas palavras ditas sem
 trilha continuam sendo ouvidas com a trilha por baixo. 95 % ou mais: a fala está limpa.
 Corte o pedaço nas pausas da fala (uma palavra cortada na borda conta como perdida).
+--de e --ate aceitam segundos (9.8), MM:SS (00:30), MM:SS.d (00:09.8) e MM:SS,dd (00:09,80): a fração do segundo vale.
 Não basta sozinho: o Whisper entende fala no meio de música que a pessoa não ouve (deu 100 % numa trilha
 reprovada como «muito alta»). Quem manda é o volume medido (medir.py).
 Na primeira vez, instala e baixa o modelo do Whisper (cerca de 2 GB).

@@ -20,7 +20,7 @@ testemunha confundida com a protagonista). Seja duro: a pessoa vai ser.
 Grave quadros e medidas numa pasta de trabalho fora do episódio.
 
 - **Telas paradas, primeiro:**
-  `npx --yes hyperframes@0.9.6 measure events "<entrega>" --map --out "<pasta>/eventos" > "<pasta>/eventos.json"` e
+  `npx --yes hyperframes@0.9.26 measure events "<entrega>" --map --out "<pasta>/eventos" > "<pasta>/eventos.json"` e
   `python3 -c "import json;print([h for h in json.load(open('<pasta>/eventos.json'))['holds'] if h['seconds']>=2])"`.
   Cada parada ganha um quadro exato: respiro pedido pelo roteiro, a aula ou o cartão final (OK), ou tela morta (MENOR;
   BLOQUEANTE na abertura).

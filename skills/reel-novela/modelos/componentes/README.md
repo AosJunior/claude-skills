@@ -5,7 +5,7 @@
 > **Cores:** são tokens (`--nv-*` em `novela.css`, com uma pele neutra da skill: fundo escuro, um acento quente, um
 > frio, vermelho e verde de estado). Troque os valores pela pele de cada série, sem mexer no `novela.js` (ele lê os
 > tokens), e meça de novo cada par texto × fundo: todo texto fica em 4,5:1 ou mais.
-> **Comando:** `npx --yes hyperframes@0.9.6 check` e `npx --yes hyperframes@0.9.6 snapshot --at <t1>,<t2> --no-end` (HyperFrames 0.9.6); o `sincronizar.py` copia tudo para o projeto de `sequencia/motion/`.
+> **Comando:** `npx --yes hyperframes@0.9.26 check` e `npx --yes hyperframes@0.9.26 snapshot --at <t1>,<t2> --no-end` (HyperFrames 0.9.26); o `sincronizar.py` copia tudo para o projeto de `sequencia/motion/`.
 
 Biblioteca de motion da série (HyperFrames + GSAP, 1080×1920) para os agentes de ato, feita pela régua da skill
 (`referencias/regua-visual.md`). O movimento segue `referencias/movimento.md` da skill. Os exemplos abaixo usam a série
@@ -165,9 +165,15 @@ até y 1642; a barra e a legenda saem). Miolos:
   → `mensagem(i)`, `digitando(i, dur)` (bolha de três pontos no lugar da mensagem i e «digitando…» no topo).
 - `perfil: {usuario, nome, bio, posts, seguidores, seguindo, avatar, botao, grade:[{cor, texto, views}]}` → `destacar(i)`.
 - `post: {usuario, avatar, cor, texto, views, legenda, insights}` → `teia()` (a teia de aranha se desenha sobre o botão).
-- `video`: a composição escreve o `<video>` no HTML dela (`class="clip"`, `muted`, `playsinline`, `data-start` e
-  `data-duration` no tempo da composição, `data-track-index`) e passa o elemento; o componente só o põe na tela.
-  Nunca `play()` nem seek. O som da aula vai na narração (pausa do `pausa.py`), não no `<video>`.
+- `video`: a composição escreve o `<video>` no HTML dela (`class="clip"`, `muted`, `playsinline`, **`data-aula`**,
+  `data-track-index`, `data-width`/`data-height`) e passa o elemento; o componente só o põe na tela. Nunca `play()` nem
+  seek. O som da aula vai na narração (pausa do `pausa.py`), não no `<video>`.
+  **O tempo do vídeo da aula não se escreve à mão.** O `data-aula` marca o `<video>` e o `montar_projeto.py` (e o
+  `segunda_voz.py`) escrevem o `data-start` e o `data-duration` dele a partir do `aula-janela.json`, no tempo real da
+  narração que está no projeto: `aula_ini` menos o `data-start` do ato (o tempo de um vídeo dentro de uma composição é
+  local a ela), e `aula_fim` menos `aula_ini`. `data-aula` vazio vale a aula inteira; `data-aula="A"` vale o pedaço A
+  do `aula-janela.json`. Ponha qualquer número nos dois atributos para o HTML ficar válido; ele é trocado a cada
+  montagem. Os tempos de entrada e saída do telefone seguem a regra dos outros: `a(<tempo do código>)`.
 
 ```js
 const cel = NOVELA.telefone(R, { tamanho: "conversa", miolo: "conversa", hora: "21:12",
@@ -232,8 +238,16 @@ tl.add(card.pergunta(), a(71.2));
   desenhe o ícone.
 - **Legenda**: os grupos ainda saem do `legenda-grupos.cjs`, que mede a largura pelo Inter. A linha da novela se ajusta
   sozinha no navegador (corpo de 62 até 44 px), mas o aviso de largura do script não vale para ela.
-- **Check**: a `nested_media_start_basis_ambiguous` do `<video>` dentro da composição é aviso esperado (o tempo é
-  local). Com o `--caption-zone` do `conferir-faixa`, o check lia etiqueta e percentual (âncora girada de tamanho
+- **Check, avisos esperados** (o `check` termina com «Check passed», 0 erros, e estes dois avisos num episódio que
+  segue a skill; qualquer outro aviso se lê):
+  - `nested_media_start_basis_ambiguous`: o `<video data-aula>` dentro da composição do ato tem `data-start` diferente
+    de zero. O tempo é local ao ato, de propósito (o aviso pede o `data-hf-media-start-basis="global"` só para tempo
+    global antigo); aqui é ruído.
+  - `first_frame_empty`: o quadro 0 só tem o fundo (o `index.html`, com a legenda e a barra ainda fora). É ruído quando
+    a cena do ato 1 já está desenhada no 0 s e os elementos entram nas primeiras palavras: a legenda e a barra são
+    de propósito palavra a palavra. Vale ouvir o aviso só se a cena do ato 1 também estiver vazia no 0 s (a personagem
+    ou o cenário entrando do nada), porque o quadro 0 é a miniatura do vídeo.
+  Com o `--caption-zone` do `conferir-faixa`, o check lia etiqueta e percentual (âncora girada de tamanho
   zero) como cobertos; eles levam `data-layout-allow-occlusion`.
 - **Tempos curtos de teste** geram `line_unread` no check: no episódio o tempo vem da fala; segure 0,5 s + 0,3 s
   por palavra antes de trocar uma etiqueta ou sair de uma tela de texto.

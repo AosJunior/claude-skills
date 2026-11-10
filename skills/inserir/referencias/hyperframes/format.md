@@ -1,6 +1,6 @@
 # Composition format
 
-The detail behind the contract in `SKILL.md`. Full references: `npx hyperframes docs compositions`, `docs data-attributes`, `docs troubleshooting`.
+The detail behind the contract in `SKILL.md`. Full references: `npx --yes hyperframes@0.9.26 docs compositions`, `docs data-attributes`, `docs troubleshooting`.
 
 ## Shape of a project
 
@@ -107,7 +107,7 @@ The detail behind the contract in `SKILL.md`. Full references: `npx hyperframes 
 - A fill on the composition root is dropped when the video has shader transitions or HDR media; put it on a full-bleed child.
 - `data-start="intro + 0.5"` starts after `intro` ends (spaces required). A typo, a missing id or a cycle silently resolves to 0, so snapshot what you time this way.
 - A clip nested inside another timed element counts its `data-start` from the composition, not from that element, and shows only while that element shows. `timeline` lists it under its parent and warns `never visible` when the windows miss (`lint`: `nested_clip_never_visible`).
-- `npx hyperframes timeline --json` lists every clip by kind with `absStart`, `absEnd`, `file`, `src`, `playbackRate`, `nested`, `host` and `durationSource`: read it instead of opening every file. It reads one level of nesting (a deeper scene shows `children=unread`); `laneError` means a `data-automation` or `data-fx-chain` that doesn't parse.
+- `npx --yes hyperframes@0.9.26 timeline --json` lists every clip by kind with `absStart`, `absEnd`, `file`, `src`, `playbackRate`, `nested`, `host` and `durationSource`: read it instead of opening every file. It reads one level of nesting (a deeper scene shows `children=unread`); `laneError` means a `data-automation` or `data-fx-chain` that doesn't parse.
 
 ## Adding media
 
@@ -146,7 +146,7 @@ Studio's Detach audio writes a muted `<video>` and an `<audio>` of the same file
 | `video_missing_muted`                                  | A timed `<video>` gets `data-has-audio="true"` or `muted`                                              |
 | `gsap_css_transform_conflict`                          | Set the start inside the tween (`gsap.fromTo`) instead of a CSS `transform`                            |
 | `gsap_animates_clip_element`                           | Animate a child of the `.clip`, or its `opacity`                                                       |
-| `video_nested_in_timed_element`                        | Time the `<video>` or its wrapper, not both                                                            |
+| `video_nested_in_timed_element`                        | Time the `<video>`; leave its wrapper untimed                                                            |
 | `media_missing_id`, `media_crossorigin_breaks_preview` | Give every `<audio>` an `id`; drop `crossorigin`                                                       |
 | `gsap_timeline_registered_before_async_build`          | Register the timeline at the end of the async callback                                                 |
 | `standalone_composition_wrapped_in_template`           | Only scene files use `<template>`                                                                      |

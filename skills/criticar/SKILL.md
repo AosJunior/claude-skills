@@ -24,10 +24,12 @@ diga quanto leva:
 
 | Etapa | Mac com chip M | Windows ou Mac Intel |
 |---|---|---|
-| Primeira vez sem a `/decupar` no computador: instala o Whisper e baixa o modelo (uns 1,6 GB) | 5 a 15 min | igual |
+| Primeira vez sem a `/decupar` no computador: instala o Whisper e baixa o modelo (cerca de 2 GB) | 5 a 15 min | igual |
 | Medir (ler o vídeo inteiro e transcrever) | uns 30 s por minuto de vídeo | 2 a 3 min por minuto |
 | Medir de novo o mesmo vídeo (transcrição em cache) | uns 15 s por minuto | uns 40 s por minuto |
 | Editor-chefe | 2 a 4 min | igual |
+
+Na primeira execução de cada skill o uv prepara o ambiente dela (bibliotecas Python): leva de 4 a 5 minutos, e a tela parece parada. Avise antes que isso é normal, só acontece na primeira vez e não é travamento.
 
 ## 0. Conferir o ambiente
 

@@ -6,7 +6,7 @@ Cópias para a skill funcionar sozinha, sem depender de outras skills instaladas
   outras são consulta.
 - `hyperframes/`: contrato de composição, determinismo, legendas, som, formato, régua de movimento, adaptador GSAP
   e registro de blocos. Fonte: HyperFrames v0.8.200 (HeyGen, Apache-2.0, github.com/heygen-com/hyperframes). A skill
-  roda o HyperFrames 0.9.6; onde a cópia diverge, vale o `--help` do comando.
+  roda o HyperFrames 0.9.26; onde a cópia diverge, vale o `--help` do comando.
 - `gsap/`: skills oficiais do GSAP que valem para vídeo renderizado (core, timeline, plugins, utils, performance).
   Fonte: github.com/greensock/gsap-skills, commit aed9cfd de 21/04/2026, licença MIT.
 - A biblioteca GSAP (GreenSock) não vem copiada: o `scripts/montar_projeto.py` a baixa do pacote oficial (jsDelivr, `gsap@3.14.2`) para

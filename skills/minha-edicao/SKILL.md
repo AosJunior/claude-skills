@@ -30,6 +30,7 @@ Quem usa é criador de conteúdo leigo, no Claude Code Desktop, Mac ou Windows. 
 - Em cada rodada, pergunte toda a fronteira: tudo o que já dá para decidir sem chutar, no máximo 5 perguntas,
   numeradas, cada uma com a sua recomendação. A pessoa pode responder "ok" ou só os números que quer mudar.
 - No máximo 3 rodadas. Uma pergunta que a mensagem da pessoa já respondeu sai da rodada.
+- Antes de medir ou fazer a prova, diga que a primeira execução prepara o ambiente (uv, OpenCV) e leva de 4 a 5 minutos, e que a tela parecer parada na primeira vez é normal e não é travamento. O navegador da prova (cerca de 600 MB) baixa uma vez só.
 
 ```
 **1. <título curto>**: <pergunta, com as opções>
@@ -44,6 +45,27 @@ Antes de perguntar, em silêncio: `ffmpeg -version`, `uv --version`, o sistema (
 edição**: suba a partir da pasta aberta até achar `marca/estilo.md`. Achou: leia o estilo (pedido de estilo
 vira o caminho "Ajustar"; o formato novo usa esse estilo). Não achou: a pasta aberta vira a pasta de edição,
 com o layout do contrato do kit (`marca/` e `videos/`), e isso entra na confirmação da rodada 3.
+
+**Receita da versão de 17/10 (a aula)**: sem `marca/estilo.md`, rode
+`uv run "<pasta desta skill>/scripts/importar_estilo.py" --listar`. Em 17/10 esta skill gravava o estilo como uma
+skill em `~/.claude/skills/<nome>`, e hoje só a `/inserir` ainda olha para lá; as outras leem `marca/estilo.md`.
+Se a lista tiver uma receita de **estilo**, ofereça importar, em uma linha: "Achei a receita de estilo «<nome>» que
+você gravou na aula. Trago ela para o formato novo? Ela passa a valer na /decupar, /inserir, /sonorizar e
+/criticar." Com o sim, rode `importar_estilo.py <nome> --pasta "<pasta de edição>"` (`--fontes-de "<pasta>"` se a
+pessoa disser onde estão as fontes; `--simular` mostra sem gravar). O script grava o `marca/estilo.md`, copia as
+fontes que achar para `marca/fontes/` e imprime duas listas:
+
+- **Trouxe**: o que veio da receita (fontes, tabela da legenda e o bloco `estilo`, cor, som, cartões, passos do
+  editor, a lista Conferir). Resuma em 2 linhas; não precisa perguntar de novo.
+- **Falta perguntar**: vira a rodada 2 inteira, só com esses itens e cada um com a sua recomendação. Arquivo de
+  fonte que não foi achado: peça para arrastar o arquivo, copie para `marca/fontes/` e acerte a linha da tabela
+  Fontes e o `fonte` (ou `fonte_destaque`) do bloco `estilo`. As respostas entram no `marca/estilo.md` nas
+  seções de [receita.md](receita.md) (`## Som`, `## Nunca`, `## Cor`); o que ela não quiser definir fica de fora.
+
+Depois diga que a receita antiga continua em `~/.claude/skills/<nome>` e que duas versões do mesmo estilo
+divergem com o tempo: ofereça apagar a antiga e só apague com o sim (se uma receita de **formato** dela cita a
+antiga pelo nome, troque a menção por `marca/estilo.md`). Receita de formato da aula continua valendo como está.
+Importado e confirmado, pule direto para a rodada 2 (só o que faltou) e, se ela quiser, para a prova.
 
 Pergunte:
 

@@ -1,7 +1,7 @@
 # GSAP no HyperFrames: o que vale para Reel
 
 Destilado das 8 skills oficiais `greensock/gsap-skills` (versão de 21/04/2026, iguais às instaladas) e do adaptador
-GSAP do HyperFrames (`hyperframes-animation/adapters/gsap*.md`). Quando houver conflito, vale o HyperFrames: o vídeo
+GSAP do HyperFrames (`hyperframes/adapter-gsap*.md`, nesta pasta). Quando houver conflito, vale o HyperFrames: o vídeo
 é renderizado buscando um tempo por vez, então todo quadro tem que sair só do tempo.
 
 ## O que usar das skills do GSAP
@@ -23,8 +23,10 @@ tem mouse nem rolagem. Todos os plugins são gratuitos e vêm no pacote `gsap`; 
 - Cada composição tem **uma** `gsap.timeline({ paused: true })`, registrada em `window.__timelines["<id>"]` com o
   mesmo id do `data-composition-id`, só depois de pronta (pode montar dentro de `document.fonts.ready`).
 - Nunca `tl.play()`, `Date.now()`, `performance.now()`, `Math.random()` sem semente, rede na hora do render ou
-  `repeat: -1` sem `data-duration` finito na raiz.
+  `repeat: -1` (nunca; para repetir, uma contagem finita: `repeat: Math.max(0, Math.floor(duração / ciclo) - 1)`).
 - A duração do vídeo vem do `data-duration` da raiz, não do tamanho da timeline. Não estique com tween vazio.
+- Todo elemento com tempo (`data-start`) leva `class="clip"`, menos `<video>` e `<audio>`.
+- Cronometre o `<video>` e deixe o invólucro dele sem `data-start`; a geometria (janela, zoom) vai num contêiner sem tempo.
 - Nunca anime `display`, `visibility` ou `autoAlpha` num elemento `.clip`: anime um filho.
 - Não centralize com `transform: translate(-50%,-50%)` num nó que o GSAP move: use flex/`inset` ou `xPercent`.
   Estado inicial vai dentro do `fromTo`, não no CSS.
@@ -38,7 +40,7 @@ tem mouse nem rolagem. Todos os plugins são gratuitos e vêm no pacote `gsap`; 
 ## Fala → tempo
 
 - As palavras com tempo saem da `/decupar` (`.dados/palavras.json`, já no tempo do corte) ou de
-  `npx hyperframes transcribe <arquivo> --json --language pt --model small`. **Sem `--language pt` o padrão
+  `npx --yes hyperframes@0.9.26 transcribe <arquivo> --json --language pt --model small`. **Sem `--language pt` o padrão
   `small.en` traduz a fala para o inglês.**
 - Cada coisa dita entra na palavra em que é dita: posicione o tween no `start` da palavra
   (`tl.from(el, {...}, palavra("Senado").start)`). Uma função `palavra(texto, n)` que acha a n-ésima ocorrência
@@ -63,9 +65,19 @@ tem mouse nem rolagem. Todos os plugins são gratuitos e vêm no pacote `gsap`; 
 
 ## Conferir sem gastar
 
-- `npx hyperframes check`: lint, runtime, layout e contraste num passo. Com erro de lint, os outros não rodam e
-  "0 samples" não quer dizer limpo.
-- `npx hyperframes snapshot --at <t1>,<t2>,<t3>`: 3 quadros-chave por cena, nunca a sequência inteira.
-- `npx hyperframes keyframes` mostra onde cada tween começa e acaba sem renderizar.
-- `npx hyperframes preview --background` abre o Studio para a pessoa ver e mexer.
-- `npx hyperframes render` só depois do sim, uma vez.
+- `npx --yes hyperframes@0.9.26 check`: lint, runtime, layout e contraste num passo. Com erro de lint, os outros não
+  rodam e "0 samples" não quer dizer limpo.
+- `npx --yes hyperframes@0.9.26 snapshot --at <t1>,<t2>,<t3>`: 3 quadros-chave por cena, nunca a sequência inteira
+  (ele junta um quadro do fim; `--no-end` tira). Se um quadro de vídeo não puder ser lido, o comando **falha** em vez
+  de entregar um quadro preto: erro aqui é aviso de verdade.
+- `npx --yes hyperframes@0.9.26 keyframes` mostra onde cada tween começa e acaba sem renderizar.
+- `npx --yes hyperframes@0.9.26 preview --background` abre o Studio para a pessoa ver e mexer.
+- `npx --yes hyperframes@0.9.26 render -q draft` é a prévia leve; `render` em 1080×1920 só depois do sim, uma vez.
+- Correção num pedaço: `render --start <s> --end <s> -q draft`. O trecho sai com o tempo recomeçando em 0 e o áudio
+  dele. Exige MP4, quadros por segundo inteiro (24, 25, 30 ou 60) e SDR.
+- Desfazer: `npx --yes hyperframes@0.9.26 history` lista as mudanças (o que o agente edita aparece como "Outside" na
+  próxima vez que um comando roda); `history restore <id>` ou `history restore start` volta os arquivos do projeto
+  para aquele ponto, e `history undo` desfaz o último `restore`. Só vê arquivos do projeto de motion.
+- Máquina: `npx --yes hyperframes@0.9.26 doctor` antes do primeiro motion. Leia a tela: sai com código 0 mesmo
+  quando algo falha. Docker, voz (Kokoro) e música (MusicGen) com ✗ são opcionais; o aviso de versão nova também (a
+  versão fica fixa em 0.9.26 de propósito).

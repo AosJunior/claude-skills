@@ -54,8 +54,11 @@ história pede esse som.
   O script acelera o take, alinha (o alinhamento fica ao lado do take e só serve ao corte) e corta nos blocos, no meio
   do silêncio entre eles.
   `uv run "<pasta desta skill>/scripts/narrar.py" narrar "<ep>/roteiro.json" --saida "<ep>/brutos/narracao" --takes 2`
-- **Quantos:** 2 no começo. Cada take gasta em crédito os caracteres da `fala` do roteiro inteiro (uns 1.600 num
-  episódio de 70 s). O script mostra o total antes de gerar e o saldo no fim.
+- **Quantos:** 2 num episódio de verdade (a escolha é pela entonação); 1 basta num teste, num episódio curto ou com o
+  saldo apertado. Começar por 1 não custa a mais: se o `conferir` reprovar, `--takes 2` gera só o take que falta.
+  **O que cada take custa:** os caracteres da `fala` do roteiro inteiro, com as marcas de emoção e uma linha em branco
+  entre os blocos (uns 1.600 num episódio de 70 s; 163 num de 13 s). O script imprime a mesma conta antes de gerar
+  («N caracteres por take, M no total») e o saldo do ElevenLabs no fim; o `alinhar` de cada take novo gasta pouco.
 - **Reaproveitamento:** o take é guardado pela fala, voz, modelo e estabilidade. Trocar o `"take"` e rodar o `narrar`
   de novo não gasta nada. Mudar a `fala` de um bloco gera o roteiro inteiro de novo; os takes antigos ficam em
   `takes/`.
@@ -129,7 +132,12 @@ narração não muda, as âncoras do `voz.js` ficam vazias e os dois tempos são
   `node briefings/tempo-real.cjs <t> …`, em `sequencia/motion/`.
 - O som trabalha em tempo real. Num `eventos/<ato>.json`, `"t"` é o tempo do código e o `efeitos.py` converte;
   `"t_real"` é para o que não está preso ao código.
-- Ato nenhum usa número solto de tempo (nem para a janela da aula, nem para a barra): é o que quebra a reancoragem.
+- Ato nenhum usa número solto de tempo (nem para a barra, nem para a entrada do telefone da aula: tudo passa por
+  `a(<tempo do código>)`): é o que quebra a reancoragem. A única exceção é o `data-start`/`data-duration` do
+  `<video data-aula>` (o vídeo real da aula), que não passa pelo `VOZ.w` porque a aula não está no alinhamento: esse par
+  é **gerado** pelo `montar_projeto.py` e pelo `segunda_voz.py` a partir do `aula-janela.json` (tempo real, local ao
+  ato) e reescrito a cada montagem. Nunca o escreva à mão; o `componentes/README.md` («Telefone») diz como marcar o
+  vídeo.
 
 ## Narração mudou depois das cenas
 
@@ -142,14 +150,17 @@ As cenas não mudam: mudam as âncoras do `voz.js`, e a legenda é gerada de nov
 | `sequencia/motion/briefings/palavras-cenas.json` | o tempo em que as cenas foram escritas: criado na primeira troca e nunca mais mudado |
 
 Para a **segunda voz** do mesmo episódio (outro narrador, mesmas cenas), o `segunda_voz.py` faz tudo isto sozinho
-numa cópia do projeto (`scripts/README.md`). À mão, para uma narração nova no mesmo projeto:
+numa cópia do projeto (`scripts/README.md`). A pasta `<ep>-<voz>/` precisa antes de uma cópia do `roteiro.json` do
+episódio com o campo `voz` trocado, para narrar: `segunda_voz.py <ep> <ep>-<voz> --preparar --voz <voice_id>` a cria (com
+`brutos/narracao/`). Narre, alinhe e encaixe a aula nela, e só então rode o `segunda_voz.py` sem o `--preparar`. À mão, para uma narração nova no mesmo projeto:
 
 1. Na primeira troca, copie `briefings/palavras-voz.json` para `briefings/palavras-cenas.json`.
 2. Narre e alinhe de novo; encaixe a aula de novo, se houver.
 3. Copie as duas saídas novas por cima das cópias do projeto.
 4. Leve as âncoras do `voz.js` ao tempo novo:
    `uv run "<pasta desta skill>/scripts/ancorar.py" "<ep>/sequencia/motion/briefings/palavras-cenas.json" "<ep>/sequencia/motion/briefings/palavras-voz.json" "<ep>/sequencia/motion/assets/voz.js" --fixa <fim antigo>=<fim novo>`
-5. Rode o `montar_projeto.py` de novo: ele refaz as janelas, a barra e a legenda e não toca nos `atoN.html`.
+5. Rode o `montar_projeto.py` de novo: ele refaz as janelas, a barra e a legenda, reescreve o tempo do `<video data-aula>` e
+   não toca no resto dos `atoN.html`.
 6. Refaça os snapshots das palavras que mudaram, os efeitos, o render e a mixagem.
 
 O que o `ancorar.py` faz e o que conferir:

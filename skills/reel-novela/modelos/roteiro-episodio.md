@@ -194,4 +194,12 @@ bloco (que descreve o que o agente de cena vê).
 }
 ```
 
-O bloco com `aula_depois` (já descrito acima) é o que o `encaixar_aula.py` usa; sem ele, `--depois <cena>`.
+**Por que o «cartão final» começa no bloco inteiro** (`"de": {"bloco": "opcoes"}`) e não na palavra da pergunta: o cartão
+das duas opções entra com o bloco, e a pergunta dele cai na faixa da legenda (y 1440–1580) já na primeira palavra. Com a
+janela começando mais tarde (testado com `"palavra": "Comenta"`), as palavras do começo do bloco ainda aparecem por cima
+da pergunta, e o `check` acusa `content_overlap` entre a legenda e o texto do cartão (`GRAVA OU ESPERA?`, em 9,7 a
+10,2 s). A mesma regra vale para qualquer cartão cheio com texto na faixa da legenda: a janela `fora` começa quando o
+cartão entra.
+
+O bloco com `aula_depois` (já descrito acima) é o que o `encaixar_aula.py` usa; sem ele, `--depois <cena>` (a cópia do
+roteiro da segunda voz, que o `segunda_voz.py --preparar` cria, já o leva).

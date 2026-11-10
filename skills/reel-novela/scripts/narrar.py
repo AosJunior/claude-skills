@@ -584,7 +584,8 @@ def cmd_narrar(args):
     if faltam:
         chave = chave_eleven(opcao(args, "--chave-arquivo"))
         total = sum(len(b["fala"]) for b, _, _ in faltam)
-        print(f"Gerando {len(faltam)} takes ({total} caracteres de crédito) com {r['modelo']}...")
+        print(f"Gerando {len(faltam)} {'take' if len(faltam) == 1 else 'takes'} com {r['modelo']}: {total} caracteres "
+              f"no total (a `fala` de cada bloco, marcas incluídas), descontados do saldo do ElevenLabs...")
         for b, k, mp3 in faltam:
             tts(chave, r["voz"], r["modelo"], b["fala"], estab, mp3)
             (mp3.parent / f"{mp3.name.rsplit('-t', 1)[0]}.json").write_text(json.dumps(
@@ -646,8 +647,9 @@ def narrar_inteira(args, r, saida, n_takes, estab, respiro, pausa_max, pausa_gan
 
     faltam = [k for k in range(1, max([n_takes] + escolha) + 1) if not arquivos_take(saida, base, k, vel)[0].is_file()]
     if faltam:
-        print(f"Gerando {len(faltam)} takes do roteiro inteiro ({len(texto) * len(faltam)} caracteres de crédito) "
-              f"com {r['modelo']}...")
+        print(f"Gerando {len(faltam)} {'take' if len(faltam) == 1 else 'takes'} do roteiro inteiro com {r['modelo']}: "
+              f"{len(texto)} caracteres por take (a `fala` de todos os blocos, marcas de emoção incluídas), "
+              f"{len(texto) * len(faltam)} no total, descontados do saldo do ElevenLabs...")
         for k in faltam:
             mp3, _ = arquivos_take(saida, base, k, vel)
             tts(chave_f(), r["voz"], r["modelo"], texto, estab, mp3)

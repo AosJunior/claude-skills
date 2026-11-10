@@ -3,7 +3,6 @@ name: hyperframes-registry
 description: About 450 ready-made HyperFrames blocks and components installed as editable source - transitions, overlays, titles, kinetic type, captions, charts, map overlays, 3D, camera moves. Use it before hand-building any named visual (CRT scanlines, glitch, film grain, a chart); also for hyperframes add and catalog.
 ---
 
-**Plugin installs:** Before setup or freshness commands, follow [plugin execution rules](../hyperframes/references/plugin-installation.md) when this skill is inside a HyperFrames plugin.
 
 # HyperFrames registry
 
@@ -12,14 +11,14 @@ Starting from an item is faster and usually better than writing the effect yours
 ## Find and install
 
 ```bash
-npx hyperframes catalog --query "<what the beat should do, in English>" --json
-npx hyperframes add <name> --json        # prints the written files and the mount snippet
+npx --yes hyperframes@0.9.26 catalog --query "<what the beat should do, in English>" --json
+npx --yes hyperframes@0.9.26 add <name> --json        # prints the written files and the mount snippet
 ```
 
 - Query in English even when the video is not: the catalog is indexed in English, and another script returns `No searchable words in query`, which is not a gap.
 - Search is local and sends nothing. The default `words` tier only finds items that reuse your words; `--on-device` ranks by meaning after a one-time ~33 MB download. Offer that download and let the person decide; never enable it silently. The `--json` envelope names the tier that answered.
 - Narrow with `--type block|component` and `--tag <tag>`. `add <tag>` installs every block with that tag; dependencies install first. `add` needs the network even for an item installed before; search works offline from the cached manifest.
-- Nothing fits: report it before you hand-build, on either tier. `catalog --query` prints the line pre-filled (`report_gap` in `--json`): `npx hyperframes feedback --search-miss "<query>" --wanted "<the move you needed>" --tier <tier>`. Describe the effect, not an item name you imagined.
+- Nothing fits: say so to the person before you hand-build. Do not run `feedback` from their machine: it sends a report out.
 
 Tiers, `dropped` and `unindexed`, stale indexes, offline behaviour: `references/search.md`.
 
@@ -48,7 +47,7 @@ Tiers, `dropped` and `unindexed`, stale indexes, offline behaviour: `references/
 - **Component**: installs to `compositions/components/<name>.html`. Copy its markup, `<style>` and script into your scene, and follow its comment block if it hooks into your timeline. `references/wiring-components.md`.
 - Take the largest unit that fits, then edit it. Keep an installed item's ids prefixed as they are, so two items can't collide.
 - An item keeps its own variables; set them for one mount with `data-variable-values` on its host (`add --vars '{"title":"…"}'` writes that), and point its colour and font variables at your brand's.
-- Beat-synced blocks take hit times from `npx hyperframes beats --json`: the beat times minus the mount's `data-start`.
+- Beat-synced blocks take hit times from `npx --yes hyperframes@0.9.26 beats --json`: the beat times minus the mount's `data-start`.
 - Install paths come from `hyperframes.json` (`references/install-locations.md`).
 
 ## Contributing

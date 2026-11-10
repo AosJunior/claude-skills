@@ -12,7 +12,7 @@ Sound is half of how a film feels, and the viewer notices a silent one before an
 ## 2. The clock
 
 - **Narrated**: the voice is the clock. Time each beat's start to its anchor word; text lands on the word that says it.
-- **Music only**: the music is the clock. Land the payoff and the mark on its strong beats (`npx hyperframes beats`, then `film.md` "On music"); cuts follow the motion, not the drums.
+- **Music only**: the music is the clock. Land the payoff and the mark on its strong beats (`npx --yes hyperframes@0.9.26 beats`, then `film.md` "On music"); cuts follow the motion, not the drums.
 - Let the sound act out the story when it fits: the old way sits near silence, the music opens when the product appears; the music holds back until the payoff.
 
 ## 3. Music
@@ -33,11 +33,11 @@ Few and exact: every effect has a cause on screen, and too many read as a templa
 | pop               | a badge, chip or number landing                |
 | riser into impact | the payoff or the mark, once in the film       |
 
-- Place a clip so its peak lands one frame after its picture (light arrives before sound; a sound early feels wrong sooner than one late): `npx hyperframes audio <file> --json` reports where it hits, and most files peak after their start.
+- Place a clip so its peak lands one frame after its picture (light arrives before sound; a sound early feels wrong sooner than one late): `npx --yes hyperframes@0.9.26 audio <file> --json` reports where it hits, and most files peak after their start.
 - Each hit sits 3-6 dB over the bed; a bed with most of its energy under 150 Hz plays as nothing on a phone speaker.
 - Rotate two or three takes of a repeated sound; the same whoosh on every cut is the most common tell.
 - Over strong music, a typing-heavy film can drop the clicks and keys. No synthesised tones, chimes or dings.
 
 ## 5. Levels
 
-Music under a voice sits around 0.14 volume; nothing clips (AI audio often does). Keep each file's true peak at −1 dBTP or lower and the mix around −16 to −14 LUFS for social, `npx hyperframes normalize-audio` to match levels (`/media-use`). Check the rendered file with `npx hyperframes audio <video> --json`: sound present, hits where the picture hits, loudness in range. Say in the delivery note that it was measured, not heard (`review.md` §4).
+Music under a voice sits around 0.14 volume; nothing clips (AI audio often does). Keep each file's true peak at −1 dBTP or lower and the mix around −16 to −14 LUFS for social, `npx --yes hyperframes@0.9.26 normalize-audio` to match levels (`/media-use`). Check the rendered file with `npx --yes hyperframes@0.9.26 audio <video> --json`: sound present, hits where the picture hits, loudness in range. Say in the delivery note that it was measured, not heard (`review.md` §4).

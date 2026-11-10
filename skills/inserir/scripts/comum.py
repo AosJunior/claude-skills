@@ -145,7 +145,7 @@ def navegador(pw):
     except Exception as e:
         if "Executable doesn't exist" not in str(e) and "playwright install" not in str(e):
             raise
-    print("Primeira vez: baixando o navegador que desenha os cartões (uns 150 MB, 1 a 3 min)...", flush=True)
+    print("Primeira vez: baixando o navegador que desenha os cartões (cerca de 600 MB, 1 a 3 min)...", flush=True)
     r = subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"])
     if r.returncode:
         sair("Não consegui baixar o navegador. Confira a internet e rode de novo.")

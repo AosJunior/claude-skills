@@ -24,6 +24,8 @@ deste arquivo); a skill não usa nenhuma outra instalada. O porquê de cada regr
 
 ## Antes de começar
 
+Os comandos deste arquivo usam `python3`. **No Windows, troque por `python`** (e `uv`, `npx` e `node` são iguais).
+
 Confira, sem pedir nada à pessoa:
 
 ```
@@ -37,30 +39,34 @@ python3 --version
 |---|---|---|
 | ffmpeg (com ffprobe) | cortar, medir e mixar | Mac: `brew install ffmpeg`. Windows: `winget install Gyan.FFmpeg` |
 | uv | os scripts de voz e som, que instalam as próprias dependências | Mac: `brew install uv`. Windows: `winget install astral-sh.uv` |
-| Node 22 ou mais | o HyperFrames (`npx --yes hyperframes@0.9.6`) e os scripts de `briefings/` | Mac: `brew install node`. Windows: `winget install OpenJS.NodeJS.LTS` |
+| Node 22 ou mais | o HyperFrames (`npx --yes hyperframes@0.9.26`) e os scripts de `briefings/` | Mac: `brew install node`. Windows: `winget install OpenJS.NodeJS.LTS` |
 | Python 3.9 ou mais | os scripts da novela | Mac: vem com as ferramentas de linha de comando (`xcode-select --install`). Windows: `winget install Python.Python.3.12` |
 | Chave do ElevenLabs | narração e alinhamento forçado | `ELEVENLABS_API_KEY` no ambiente, ou um arquivo que a pessoa indica com a linha `ELEVENLABS_API_KEY=...`, passado como `--chave-arquivo "<arquivo>"`. Sem chave, pare antes do passo 1 e pergunte à pessoa onde ela está |
 | Um gerador de imagem | elenco e cenários | o conector do Higgsfield (o calibrado em `referencias/elenco-e-cenarios.md`) ou outro que a pessoa já use, calibrado pela mesma referência |
 | Sons | trilha e efeitos | o conector do Epidemic Sound nesta sessão; sem ele, sons da pessoa com a licença anotada, a Biblioteca de áudio do YouTube ou o Pixabay (`referencias/som.md`) |
+| Internet | o `montar_projeto.py` baixa a GSAP 3.14.2 do pacote oficial (jsDelivr) uma vez por projeto, e o `npx` baixa o HyperFrames na primeira vez | conectada nessas horas; sem rede, salve a GSAP no `assets/gsap.min.js` do projeto (o script diz o endereço) |
 | Disco | o episódio chega perto de 1 GB, e o render usa mais na hora | 5 GB livres ou mais |
 
 - Se faltar algo, diga em uma linha o que falta e ofereça instalar; instale só depois do sim. No Windows, depois de
   instalar, a pessoa fecha e abre o Claude.
 - O arquivo da chave você não abre, não lê e não copia: só passa o caminho aos scripts, que leem a linha da chave sem
   mostrá-la.
-- **Windows:** caminho em JSON com barra normal (`C:/pasta/da/serie`), todo caminho entre aspas nos comandos e `python`
-  no lugar de `python3` se for o nome instalado.
+- **Windows:** caminho em JSON com barra normal (`C:/pasta/da/serie`) e todo caminho entre aspas nos comandos.
 
 Pronto quando os quatro comandos respondem com a versão, a chave está no ambiente ou num arquivo que a pessoa
-indicou, há um gerador de imagem e uma fonte de sons, e há espaço.
+indicou, há um gerador de imagem e uma fonte de sons, há espaço e há internet para a GSAP e para o HyperFrames.
 
 ## Conversa
 
 Frases curtas, sem termo técnico: «narrador», «trilha», «efeito», «roleta», «volume de publicação». A pessoa é chamada
 nos 4 portões («Portões») e na rodada de perguntas da bíblia; no resto você executa e mostra prévias sem parar o
 fluxo. Prévia abre no QuickTime no Mac (`open -a "QuickTime Player" "<arquivo>"`) e no player padrão no Windows
-(`start "" "<arquivo>"`). Antes do que demora, diga quanto leva: o render leva de 1 a 2 min por minuto de vídeo num
-Mac com chip M (mais no Windows), e a primeira conferência da voz instala o Whisper (5 a 15 min).
+(`start "" "<arquivo>"`). Antes do que demora, diga quanto leva. Esperas medidas na primeira vez
+num Mac com chip M (mais no Windows): a primeira `montar_trilha.py` leva uns 4 min instalando as dependências; a primeira
+conferência da fala (`conferir`, `ouvir.py`) instala o Whisper e leva uns 4 min num trecho curto (5 a 15 min se o modelo
+ainda precisa baixar); o `entregar.py` leva mais de 5 min na primeira vez (o `npx` baixa o HyperFrames) e depois de 1 a 2
+min por minuto de vídeo no rascunho. **Mostre o progresso:** rode esses comandos com a saída à vista (o `entregar.py` já a
+imprime linha a linha) e nunca a esconda num `tail` ou `> arquivo`; sem ela a pessoa acha que travou.
 
 ## Pasta da série
 
@@ -81,7 +87,7 @@ Documentos com o disco quase cheio: o iCloud tira os arquivos do disco, e a leit
     roteiro.json         de modelos/roteiro-episodio.md
     brutos/narracao/     takes, narracao.wav, narracao-blocos.json, palavras-voz.json, aula-janela.json
     sequencia/motion/    projeto HyperFrames + GSAP (do montar_projeto.py)
-    sequencia/som/       mix.json · eventos/<ato>.json · efeitos.json · sons/ · trilha/
+    sequencia/som/       mix.json · eventos/<ato>.json · efeitos.json · sons/ · trilha/ · medida/ (o sem trilha, só para medir)
     sequencia/previas/   tudo o que a pessoa vê antes da entrega
     sequencia/revisao/   briefings e relatórios das áreas
     sequencia/exports/   <slug>-epNN.mp4 · creditos.md
@@ -150,7 +156,8 @@ O roteirista escreve `<ep>/roteiro.json` pelo [`modelos/roteiro-episodio.md`](mo
 história em 5 linhas, crítico independente, texto final. O crítico é um agente novo, que não escreveu o roteiro, e
 ataca coesão, linha do tempo e fluidez; o roteirista responde a cada ponto. Você confere a lista de «Conferência antes
 de mandar à pessoa» do modelo e manda à pessoa a tabela batida · voz · tela, a duração estimada e a conta de crédito da
-voz (caracteres da `fala` do roteiro inteiro × 2 takes).
+voz (caracteres da `fala` do roteiro inteiro, com as marcas de emoção, × os takes; o `narrar.py` imprime a mesma conta
+antes de gerar: «N caracteres por take»).
 
 Pronto quando a conferência passa item a item e a pessoa aprova. → **Portão 2.** Depois do sim, a fala só muda com
 outro sim.
@@ -161,6 +168,10 @@ Pela [`voz.md`](referencias/voz.md), com o narrador da bíblia e sem amostras no
 `--chave-arquivo "<arquivo>"` aos comandos do `narrar.py` quando a chave estiver num arquivo.
 
 1. **Takes:** `uv run "<pasta desta skill>/scripts/narrar.py" narrar "<ep>/roteiro.json" --saida "<ep>/brutos/narracao" --takes 2`.
+   Cada take é o roteiro inteiro e custa os caracteres da `fala` dele (uns 1.600 num episódio de 70 s; 163 num de 13 s).
+   `--takes 1` basta num teste, num episódio curto ou com o saldo apertado: se o `conferir` reprovar, `--takes 2`
+   gera só o que falta, então começar por um nunca gasta mais do que começar por dois. Use `--takes 2` quando for
+   escolher a entonação entre dois takes sem uma volta a mais.
 2. **Conferência:** `uv run "<pasta desta skill>/scripts/narrar.py" conferir "<ep>/brutos/narracao"`. Fica o take
    marcado com `*`, ou o que tiver texto igual em todos os blocos e mais entonação (`"take": <n>` na raiz do roteiro e
    `narrar` de novo, que remonta sem gastar). Nenhum passou: `--takes 3`.
@@ -188,9 +199,12 @@ Só o que o roteiro pede e ainda não existe na série, como no passo 2, com nov
    Opus, nessa pasta, e entra no README dela. Depois de mexer na biblioteca:
    `python3 "<pasta da série>/componentes/sincronizar.py" "<ep>/sequencia/motion"`.
 2. **Projeto:** `python3 "<pasta desta skill>/scripts/montar_projeto.py" "<ep>" --componentes "<pasta da série>/componentes"`.
-   Ele copia o esqueleto, os componentes e a mola, põe a narração, calcula a janela de cada ato, cria os `atoN.html`
-   vazios e válidos, a barra, a legenda e a `briefings/_regua.md`, e imprime as janelas. Depois, uma vez, `npm install`
-   em `<ep>/sequencia/motion/`, para o `npx` achar o HyperFrames travado.
+   Ele copia o esqueleto, os componentes e a mola, **baixa a GSAP 3.14.2 do pacote oficial (jsDelivr) para
+   `assets/gsap.min.js` e por isso precisa de internet nessa hora**, põe a narração, calcula a janela de cada ato, cria os
+   `atoN.html` vazios e válidos, a barra, a legenda e a `briefings/_regua.md`, e imprime as janelas. No `<video data-aula>`
+   do ato que mostra a aula (o telefone grande, `componentes/README.md`), ele escreve o `data-start` e o `data-duration`
+   a partir do `aula-janela.json`. Depois, uma vez, `npm install` em `<ep>/sequencia/motion/`, para o `npx` achar o
+   HyperFrames travado.
 3. **Régua do episódio:** preencha os `[PREENCHER]` da `_regua.md` (personagem e dilema, a frase da pessoa, a pele, a
    tabela de fronteiras entre atos, a direção aprovada). O resto ela já aponta: a régua da novela, o movimento, o
    contrato do render e o README dos componentes.
@@ -206,7 +220,7 @@ Só o que o roteiro pede e ainda não existe na série, como no passo 2, com nov
    Reprovado, refaça só o que ela apontou.
 6. **Dúvida entre duas direções** (luz, enquadramento, cor da etiqueta) se resolve antes do render, numa folha só:
    monte cada direção numa cópia da pasta `sequencia/motion/` fora do episódio, sem `renders/`, e rode
-   `npx --yes hyperframes@0.9.6 compare "<cópia A>" "<cópia B>" --at <t> --labels "A,B" --out "<ep>/sequencia/previas/ab-<t>.png"`
+   `npx --yes hyperframes@0.9.26 compare "<cópia A>" "<cópia B>" --at <t> --labels "A,B" --out "<ep>/sequencia/previas/ab-<t>.png"`
    nos tempos das palavras-gatilho. A pessoa escolhe pela folha, e as cópias são apagadas.
 7. **Atos em paralelo:** um agente por ato, cada um dono só do seu `compositions/atoN.html`, de `assets/atoN/` e do
    bloco do ato no `assets/roletas.js`, com o piloto aprovado como padrão. Ato que só usa componente da biblioteca vai
@@ -231,7 +245,8 @@ Pela [`som.md`](referencias/som.md), com o briefing de som, um agente só, depoi
   e lista o som que falta, com nome e ID (baixe com o `sons.py` e rode de novo); depois,
   `uv run "<pasta desta skill>/scripts/variar.py" "<ep>"`.
 - **Mix única:** `uv run "<pasta desta skill>/scripts/mixar.py" "<ep>/sequencia/som/mix.json"` (com `--sem-trilha` se
-  a série é só com efeitos), com o `video` no rascunho.
+  a série é só com efeitos), com o `video` no rascunho. Com trilha, rode também `mixar.py … --sem-trilha`: ele grava em
+  `sequencia/som/medida/` (fora de `exports/`) a cópia sem música de que o `medir.py` precisa (`som.md`, «Medidas»).
 
 Pronto quando as medidas de `som.md` passam na mix única: −14 LUFS (±0,5), pico de −1,5 dBTP ou menos, ganho da voz de
 0,3 dB ou menos, a trilha (se houver) a −20 LU sob a fala e de −7 a −9 nos respiros, e a fala do narrador e a da aula
@@ -250,14 +265,21 @@ Pronto quando nenhum BLOQUEANTE fica aberto.
 1. **Render de entrega**, uma vez por versão: `python3 "<pasta desta skill>/scripts/entregar.py" "<ep>"` (sem
    `--rascunho`), com os agentes parados. Aponte o `video` do `mix.json` para ele e mixe de novo; confira as medidas
    do passo 8 nesse arquivo.
-2. Em `sequencia/exports/` fica só `<slug>-epNN.mp4`, sem número de versão, e o `creditos.md`: narrador, modelo e
+2. Em `sequencia/exports/` fica só `<slug>-epNN.mp4` (`<slug>` é o nome da pasta da série, como o `entregar.py` nomeia
+   o render; [`som.md`](referencias/som.md), «Mixagem»), sem número de versão, e o `creditos.md`. A cópia sem trilha
+   que serve para medir fica em `sequencia/som/medida/`, nunca em `exports/`. O `creditos.md` leva: narrador, modelo e
    velocidade; trilha com título, autor, fonte e licença; cada efeito com título, ID e licença; o gerador de cada
    imagem; o trecho da aula com a fonte e a autorização (`som.md`, «Créditos»).
 3. O `veiculacao.md` pelo [`modelos/veiculacao.md`](modelos/veiculacao.md), com as duas palavras, a mensagem
    automática e a conferência do fim dele.
-4. **Segunda voz**, se a bíblia pede: narre e alinhe em `<ep>-<voz>/brutos/narracao/`, encaixe a aula com
-   `--depois <cena>`, `python3 "<pasta desta skill>/scripts/segunda_voz.py" "<ep>" "<ep>-<voz>"`, rascunho, mix e
-   medidas. As cenas são as mesmas: nada é refeito à mão.
+4. **Segunda voz**, se a bíblia pede. A pasta `<ep>-<voz>/` precisa de uma **cópia do `roteiro.json` do episódio com o
+   campo `voz` trocado** antes de narrar, e quem a cria é o script: na ordem,
+   1. `python3 "<pasta desta skill>/scripts/segunda_voz.py" "<ep>" "<ep>-<voz>" --preparar --voz <voice_id>` (cria
+      `<ep>-<voz>/brutos/narracao/` e a cópia do roteiro; fala, `ato`, legenda e `aula_depois` ficam iguais);
+   2. narre, confira e alinhe em `<ep>-<voz>/brutos/narracao/` (passo 5), e encaixe a aula
+      (`encaixar_aula.py "<ep>-<voz>"`; o `--depois <cena>` só serve a quem não tem o `aula_depois` na cópia);
+   3. `python3 "<pasta desta skill>/scripts/segunda_voz.py" "<ep>" "<ep>-<voz>"`, depois rascunho, mix e medidas.
+   As cenas são as mesmas: nada é refeito à mão, e o `data-start` do vídeo da aula é reescrito pelo script.
 5. Atualize o `README.md` da série e abra o vídeo para a pessoa, com uma linha por arquivo. → **Portão 4.**
 
 Pronto quando a pessoa aprova e as duas palavras e a mensagem automática estão no `veiculacao.md`. Correção depois
@@ -265,7 +287,7 @@ disso: refaça só o que mudou, passe de novo nas medidas e entregue.
 
 **Depois de postado**, o episódio fica só com o final e com o que uma versão nova precisa: `briefing.md`,
 `roteiro.json`, `creditos.md`, `veiculacao.md`, `brutos/narracao/` sem os takes, o projeto motion sem `node_modules/`
-nem `renders/`, e `sequencia/som/` inteiro menos as prévias (`sons/`, `eventos/`, `efeitos.json`, `mix.json`, a voz
+nem `renders/`, e `sequencia/som/` inteiro menos as prévias e a `medida/` (`sons/`, `eventos/`, `efeitos.json`, `mix.json`, a voz
 limitada e a trilha editada). Apagar `sons/` ou a voz limitada obriga a baixar e refazer tudo numa correção.
 
 ## Portões

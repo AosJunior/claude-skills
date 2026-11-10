@@ -12,11 +12,20 @@ COLS, ROWS, W = 8, 3, 300
 H = W * 1920 // 1080
 
 
+FONTES = ["/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/System/Library/Fonts/Helvetica.ttc",   # Mac
+          "C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/segoeuib.ttf",                           # Windows
+          "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",   # Linux
+          "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"]
+
+
 def fonte(tam):
-    for f in ["/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/System/Library/Fonts/Helvetica.ttc"]:
+    for f in FONTES:
         if os.path.exists(f):
             return ImageFont.truetype(f, tam)
-    return ImageFont.load_default()
+    try:   # as versões novas do Pillow trazem uma fonte própria que aceita tamanho
+        return ImageFont.load_default(tam)
+    except TypeError:
+        return ImageFont.load_default()
 
 
 def quadros_do_video(video, pasta):

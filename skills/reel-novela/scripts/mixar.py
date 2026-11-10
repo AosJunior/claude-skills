@@ -27,8 +27,8 @@ mix.json (caminhos relativos à pasta dele; o padrão é sequencia/som/mix.json)
 {
   "video": "../motion/renders/<slug>-1080.mp4",
   "voz": "../motion/narracao.wav",
-  "saida": "../exports/<slug>-com-trilha.mp4",
-  "saida_sem_trilha": "../exports/<slug>-sem-trilha.mp4",
+  "saida": "../exports/<slug>-epNN.mp4",
+  "saida_sem_trilha": "medida/<slug>-epNN-sem-trilha.mp4",
   "trilha": {
     "arquivo": "trilha/trilha-editada.wav",
     "palavras": "../motion/briefings/palavras-voz.json",
@@ -37,7 +37,10 @@ mix.json (caminhos relativos à pasta dele; o padrão é sequencia/som/mix.json)
   },
   "efeitos": "efeitos.json"
 }
+  (<slug>: o nome da pasta da série sem o AAAA-MM-DD- do começo, como o entregar.py nomeia o render. A saída sem
+  trilha é só para medir: fica em sequencia/som/medida/, fora de exports/, que guarda só o final.)
 Opcionais:
+  saida_sem_trilha  sem ele, o --sem-trilha grava em medida/<nome da "saida">-sem-trilha.mp4, ao lado do mix.json
   saida_trecho      prévia do --trecho (padrão ../previas/previa-trecho.mp4; "-sem-trilha" no nome sem a música)
   teto_efeitos      teto do barramento dos efeitos em dBFS (padrão -1)
   trilha.viradas    lista de instantes (s, tempo real) ou o narracao-blocos.json (vale o "fim" de cada bloco
@@ -264,6 +267,8 @@ def main():
     cam = lambda x: (Path(x).expanduser() if Path(x).expanduser().is_absolute() else base / x)  # noqa: E731
     sem_trilha = "--sem-trilha" in args
     trecho = "--trecho" in args
+    if sem_trilha and not cfg.get("saida_sem_trilha") and cfg.get("saida"):
+        cfg["saida_sem_trilha"] = f"medida/{Path(cfg['saida']).stem}-sem-trilha.mp4"
     for chave in ("video", "voz", "saida_sem_trilha" if sem_trilha else "saida"):
         if not cfg.get(chave):
             sair(f"Falta \"{chave}\" no {cfgp.name}.")

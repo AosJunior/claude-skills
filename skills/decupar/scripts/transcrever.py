@@ -434,7 +434,7 @@ def main():
             sair(f"Não consegui extrair o som do vídeo:\n{r.stderr[-800:]}")
         try:
             sil = silencios(wav)
-            print(f"Transcrevendo com {qual} (na primeira vez ele baixa o modelo, cerca de 1,6 GB)...", flush=True)
+            print(f"Transcrevendo com {qual} (na primeira vez ele baixa o modelo, cerca de 2 GB)...", flush=True)
             t1 = time.time()
             brutas = transcrever(wav, qual)
             t_whisper = time.time() - t1

@@ -35,7 +35,9 @@ abaixo. Este documento é a fonte da verdade desses arquivos; o detalhe de cada 
 
 - **`achar_marca(pasta)`** sobe a partir da pasta dada até achar `marca/estilo.md`, sem seguir atalhos
   (symlinks), e devolve a pasta `marca/` (ou nada). O script que a procura imprime `Marca: <caminho>` ou
-  `Marca: nenhuma`.
+  `Marca: nenhuma`. **Onde para**: na pasta pessoal da pessoa (`~`), que ainda é olhada, e nunca acima dela;
+  para uma pasta fora da pessoal (disco externo), na pasta do volume (`/Volumes/<disco>` no Mac, a letra do
+  disco no Windows) ou, na falta, na raiz. `limite_busca(pasta)` devolve essa pasta-limite.
   Exceção: o `prova.py` da `/minha-edicao` roda antes de existir `estilo.md` e procura o arquivo pedido subindo.
 - **Caminho num JSON**: começa com `marca/` → contra a pasta que contém `marca/`; sem marca achada, é erro.
   Outro relativo → contra a pasta do próprio JSON.
@@ -260,3 +262,8 @@ Grava `marca/estilo.md`, copia para `marca/` o que ele cita (fontes, LUT, sons, 
 escreve a receita de formato em `<pasta de edição>/.claude/skills/<nome>/SKILL.md`. Usa o `lut_capcut.py`
 (3.3) e o `identificar.py` (5.3) pelo caminho da skill irmã. Exemplos de estilo moram em
 `minha-edicao/exemplos/<nome>/estilo.md` (sem frontmatter); exemplos de formato, em `.../<nome>/SKILL.md`.
+
+**Receita de estilo da versão de 17/10.** Naquela versão o estilo era uma skill em `~/.claude/skills/<nome>/SKILL.md`.
+Sem `marca/estilo.md`, a `/minha-edicao` oferece importá-la com `scripts/importar_estilo.py`: lê a receita, grava o
+`marca/estilo.md` no formato acima, copia para `marca/fontes/` os arquivos de fonte que achar e lista o que falta
+perguntar. Não altera a receita antiga nem sobrescreve um `estilo.md` que já exista.

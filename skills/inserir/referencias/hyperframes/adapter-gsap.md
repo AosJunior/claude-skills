@@ -70,7 +70,7 @@ HyperFrames is stricter than vanilla GSAP. Animate only:
 
 **Forbidden** (breaks the renderer or the clip lifecycle):
 
-- `display`, raw `visibility` **on a clip element**: never duration-tween these. HyperFrames owns a clip's visibility and `lint` rejects it. Use `autoAlpha` (opacity plus endpoint visibility) or a zero-duration timeline set at an explicit boundary. Animating a clip element's other visual properties is fine and the shipped catalog does it throughout; what is forbidden is taking over its visibility.
+- `display`, raw `visibility` **on a clip element**: never duration-tween these. HyperFrames owns a clip's visibility and `lint` rejects it. Never animate `display`, `visibility` or `autoAlpha` on a `.clip`: animate a child of it instead (a `.clip` may still animate its other visual properties, such as `opacity`, `x`, `y` and `scale`).
 - Anything driven by `Math.random()`, `Date.now()`, `performance.now()`, or event handlers — animation state must be deterministic from time alone.
 
 > **Note**: the list above is a **denylist**, not an allowlist. Properties outside it, including `width`, `height`, `filter`, `clipPath` and `strokeDashoffset`, are legitimate targets; prefer transforms and opacity where you have the choice, for performance rather than correctness. See `hyperframes-core/references/determinism-rules.md` for the full deterministic-render contract.
@@ -84,7 +84,7 @@ HyperFrames is stricter than vanilla GSAP. Animate only:
 
 ## Best Practices
 
-- Use camelCase property names; prefer transform aliases and autoAlpha.
+- Use camelCase property names; prefer transform aliases; `autoAlpha` only on a child inside a clip, never on the `.clip` itself.
 - Prefer timelines over chained tweens with delays; use the position parameter.
 - Add labels with `addLabel()` for readable sequencing.
 - Pass defaults into the timeline constructor.
@@ -96,7 +96,7 @@ HyperFrames is stricter than vanilla GSAP. Animate only:
 - Use both `svgOrigin` and `transformOrigin` on the same SVG element.
 - Chain animations with `delay` when a timeline can sequence them.
 - Create tweens before the DOM exists.
-- Use infinite `repeat: -1` without a finite root `data-duration` (with one, export clips to that window); when a loop must end before the composition does, use a finite repeat count computed from the visible duration.
+- Use `repeat: -1`, ever. Use instead a finite repeat count computed from the visible duration: `repeat: Math.max(0, Math.floor(duration / cycleDuration) - 1)`.
 
 ## Credits And References
 

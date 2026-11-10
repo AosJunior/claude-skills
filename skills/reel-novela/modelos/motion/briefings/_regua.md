@@ -22,11 +22,11 @@ O pedido da pessoa: [PREENCHER: a frase dela, literal].
 ## Comando do HyperFrames: um só para todos
 
 ```
-npx --yes hyperframes@0.9.6 <comando>
+npx --yes hyperframes@0.9.26 <comando>
 ```
 
-- `npx --yes hyperframes@0.9.6 check` · `node briefings/conferir-faixa.cjs` (texto de cena abaixo de y 1430)
-- `npx --yes hyperframes@0.9.6 snapshot --at <t1>,<t2>,… --no-end` (tempo real; o comando diz a pasta dos PNG)
+- `npx --yes hyperframes@0.9.26 check` · `node briefings/conferir-faixa.cjs` (texto de cena abaixo de y 1430)
+- `npx --yes hyperframes@0.9.26 snapshot --at <t1>,<t2>,… --no-end` (tempo real; o comando diz a pasta dos PNG)
 - Tempo real a partir do tempo do código: `node briefings/tempo-real.cjs <t> …`.
 
 Ninguém renderiza o vídeo (o `entregar.py` renderiza). Ninguém cria um segundo HTML na raiz (quebra o `check` de todos).
@@ -97,6 +97,6 @@ blocos e trechos fora, do `roteiro.json`). Nenhum ato mexe na legenda; se um tex
 
 ## Como conferir
 
-1. `npx --yes hyperframes@0.9.6 check` e `node briefings/conferir-faixa.cjs` na raiz: sem erro do seu arquivo.
+1. `npx --yes hyperframes@0.9.26 check` e `node briefings/conferir-faixa.cjs` na raiz: sem erro do seu arquivo.
 2. Snapshot nas palavras-gatilho do seu briefing, mais T − 0,2 e T + 0,1 das suas fronteiras. Abra cada PNG e confira.
 3. Não renderize o vídeo. Você não fala com a pessoa e não abre arquivo para ela.

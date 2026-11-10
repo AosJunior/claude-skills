@@ -21,13 +21,29 @@ class ErroContrato(ValueError):
 
 # ---------------------------------------------------------------- marca e caminhos (seção 1)
 
-def achar_marca(pasta):
-    """Sobe a partir de `pasta` até achar marca/estilo.md (ou chegar à raiz do disco). Devolve a pasta marca/ ou None.
-    Não segue atalhos (symlinks): vale a pasta como a pessoa a vê."""
+def limite_busca(pasta):
+    """Até onde `achar_marca` sobe: a pasta pessoal da pessoa (nunca acima dela); fora dela, a raiz do disco
+    (no Mac, a pasta do volume em /Volumes; no Windows, a letra do disco)."""
     p = Path(os.path.abspath(os.path.expanduser(str(pasta))))
+    casa = Path(os.path.abspath(os.path.expanduser("~")))
+    if casa in (p, *p.parents):
+        return casa
+    if len(p.parts) > 2 and p.parts[1] == "Volumes":
+        return Path(*p.parts[:3])
+    return Path(p.anchor)
+
+
+def achar_marca(pasta):
+    """Sobe a partir de `pasta` até achar marca/estilo.md, parando na pasta pessoal (ou, fora dela, na raiz do
+    disco): nunca olha acima da pasta pessoal. Devolve a pasta marca/ ou None. Não segue atalhos (symlinks):
+    vale a pasta como a pessoa a vê."""
+    p = Path(os.path.abspath(os.path.expanduser(str(pasta))))
+    limite = limite_busca(p)
     for d in (p, *p.parents):
         if (d / "marca" / "estilo.md").is_file():
             return d / "marca"
+        if d == limite:
+            break
     return None
 
 

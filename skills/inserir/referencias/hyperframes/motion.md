@@ -41,7 +41,7 @@ Use 3–5 kinds in a film, each caused by something on screen. Hard cuts belong 
 | Dip cut                  | the outgoing frame darkens ~40% for 3 frames before a hard cut, so the cut reads as meant                                                                                           |
 | Blur swap on one stage   | out: opacity → 0 with ~8 px blur in 0.13–0.2 s; in: blur → 0 in 0.13 s; the ground never cuts                                                                                       |
 
-Registry versions: `npx hyperframes catalog --tag transition --json`.
+Registry versions: `npx --yes hyperframes@0.9.26 catalog --tag transition --json`.
 
 | The person says        | Change                                                                         |
 | ---------------------- | ------------------------------------------------------------------------------ |
@@ -60,15 +60,15 @@ Registry versions: `npx hyperframes catalog --tag transition --json`.
 | Speed ramp                              | A `rate` lane in `data-automation` on the media (`t` in clip seconds, `v` 0.1–10); it overrides the constant rate          |
 | Hold or freeze                          | Hold a final frame or a finished scene; a freeze mid-source needs a still exported first and placed as its own clip        |
 
-Ready-made moves: `npx hyperframes catalog --tag camera --json`, or `catalog --query "<the move>" --tag motion-primitive --json`.
+Ready-made moves: `npx --yes hyperframes@0.9.26 catalog --tag camera --json`, or `catalog --query "<the move>" --tag motion-primitive --json`.
 
 ## Seeing motion
 
 The whole-film pass (beat sheet, cuts, phone width, the craft warnings) is `review.md`. For one move:
 
-- `npx hyperframes keyframes --json [--selector '#id'] [--runtime all]` lists keyframes and motion paths (GSAP, CSS, anime.js): property, time, value, ease.
-- `npx hyperframes keyframes --shot motion.png --selector '#id'` draws the real element's samples over time with its path (9 samples; `--samples N`). `--layout strip` for motion in place, `--from`/`--to` for one stretch, `--angle iso|top|side|'yaw,pitch'` for 3D, `--ghost` for a `<canvas>`.
-- `npx hyperframes snapshot --range 2,4 --frames 8` samples one stretch; `--composition <id>` samples one scene; `--at <t,…>` exact instants; `--zoom '#id'` a sharp crop; `--angle iso` depth and overlap.
+- `npx --yes hyperframes@0.9.26 keyframes --json [--selector '#id'] [--runtime all]` lists keyframes and motion paths (GSAP, CSS, anime.js): property, time, value, ease.
+- `npx --yes hyperframes@0.9.26 keyframes --shot motion.png --selector '#id'` draws the real element's samples over time with its path (9 samples; `--samples N`). `--layout strip` for motion in place, `--from`/`--to` for one stretch, `--angle iso|top|side|'yaw,pitch'` for 3D, `--ghost` for a `<canvas>`.
+- `npx --yes hyperframes@0.9.26 snapshot --range 2,4 --frames 8` samples one stretch; `--composition <id>` samples one scene; `--at <t,…>` exact instants; `--zoom '#id'` a sharp crop; `--angle iso` depth and overlap.
 - Against a reference video: `snapshot --at <t,…> --against ref.mp4` writes a side-by-side sheet.
 - Assert intent instead of eyeballing it: a `<name>.motion.json` next to the composition makes `check` verify it on the seeked timeline, as errors (`motion_appears_late`, `motion_out_of_order`, `motion_off_frame`, `motion_frozen`):
 

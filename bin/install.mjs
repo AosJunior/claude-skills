@@ -46,6 +46,8 @@ for (const nome of skills) console.log(`   /${nome}${substituidas.includes(nome)
 if (substituidas.length) {
   console.log("\nA pasta de cada skill substituída foi apagada e copiada de novo: arquivo de versão antiga não fica.");
   console.log("O que você tinha guardado dentro dessas pastas saiu junto; a sua pasta de edição não é tocada.");
+  if (substituidas.some((n) => PACOTES.edicao.includes(n)))
+    console.log("Se você gravou o seu estilo na versão antiga (aula de 17/10), rode /minha-edicao uma vez para trazê-lo.");
 }
 console.log("\nAbra o Claude Code em qualquer projeto e digite o nome da skill.");
 console.log("Pra atualizar, rode o mesmo comando de novo.\n");

@@ -25,7 +25,7 @@ da trilha. Os sons dela moram em `marca/sons/`, com as licenças em `marca/sons/
 Frases curtas, sem termo técnico: "a música abaixa quando você fala", "efeito", "volume de publicação". Antes do
 que demora, diga quanto leva: mixar leva de 15 s a 1 min por minuto de vídeo; conferir a fala, uns 30 s por pedaço
 (na primeira vez sem a `/decupar` no computador, 5 a 15 min para instalar o Whisper); reconhecer as músicas dos
-Reels, uns 40 s por Reel.
+Reels, uns 40 s por Reel. Na primeira execução de cada skill o uv prepara o ambiente dela (bibliotecas Python): leva de 4 a 5 minutos, e a tela parece parada. Avise antes que isso é normal, só acontece na primeira vez e não é travamento.
 
 Ela decide duas coisas: **a trilha** (passo 2) e **o mapa de sons** (passo 4). O resto você executa.
 

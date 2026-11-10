@@ -14,7 +14,7 @@ Every renderable composition needs one root element:
 | `data-fps`                   | No            | Optional frame rate hint. CLI render flags can override output fps.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `data-composition-variables` | No            | JSON array of variable declarations (on `<html>`). See `variables-and-media.md`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 
-\*`data-duration` is optional whenever the runtime can auto-infer duration: a registered GSAP timeline, a finite CSS animation, a finite WAAPI `element.animate()`, a registered Lottie animation, or timed clips (the root then ends at its latest clip end, and lint only warns `root_composition_duration_derived`). It is **required** for Three.js (no auto-inference), for infinite/unbounded CSS or WAAPI animations, and for any composition with no GSAP timeline, no animation signal and no timed clip with a length. `npx hyperframes lint` enforces this (`root_composition_missing_duration_source`). Per-runtime inference lives in `hyperframes-animation/adapters/`.
+\*`data-duration` is optional whenever the runtime can auto-infer duration: a registered GSAP timeline, a finite CSS animation, a finite WAAPI `element.animate()`, a registered Lottie animation, or timed clips (the root then ends at its latest clip end, and lint only warns `root_composition_duration_derived`). It is **required** for Three.js (no auto-inference), for infinite/unbounded CSS or WAAPI animations, and for any composition with no GSAP timeline, no animation signal and no timed clip with a length. `npx --yes hyperframes@0.9.26 lint` enforces this (`root_composition_missing_duration_source`). Per-runtime inference lives in `hyperframes-animation/adapters/`.
 
 The root should be `position: relative`, have explicit pixel dimensions, and hide overflow unless intentionally composing outside the frame.
 
@@ -22,7 +22,7 @@ The root should be `position: relative`, have explicit pixel dimensions, and hid
 
 **`data-start` is what makes an element a clip.** The runtime collects `[data-start]` and drives visibility off that attribute, so any element carrying it is timed.
 
-`class="clip"` is a **convention, not a requirement**: the runtime never reads it. Keep writing it: drop it and the full-frame box collapses unless you supply that layout yourself, Studio uses it as an edit hint, and `lint` warns (`timed_element_missing_clip_class`) when a timed element lacks it. Omit it on `<video>` and `<audio>`.
+`class="clip"` is **required** on every visual timed element: without it the full-frame box collapses unless you supply that layout yourself, Studio loses its edit hint, and `lint` warns (`timed_element_missing_clip_class`). Omit it only on `<video>` and `<audio>`.
 
 **Nesting is allowed.** A timed element inside a wrapper is still timed, and a timed ancestor clamps its descendants: a child cannot be visible while its timed ancestor is hidden. Direct children of the root get automatic layout (see "Root-level clips get automatic layout" below); nested ones do not, so give them their own positioning.
 
@@ -60,7 +60,7 @@ See `sub-compositions.md` for the full wiring pattern.
 ## Authoring Hints
 
 - `id="root"` — template convention used by scaffolds and the transition catalog so CSS can target the composition root with `#root` instead of `[data-composition-id="main"]`. Not required by the runtime, but consistent with the rest of the ecosystem.
-- `class="clip"`: layout and tooling convention on visible timed elements (`<div>`, `<img>`, …), not a runtime requirement. See Clip Attributes above.
+- `class="clip"`: required on visible timed elements (`<div>`, `<img>`, …). See Clip Attributes above.
 - `data-root="true"`: names the composition root explicitly. Without it the runtime picks the outermost `[data-composition-id]` element, which is right for almost every file; set it when compositions nest and you need to be unambiguous.
 - `data-layout-allow-overflow` — tells `hyperframes check` that overflow on this element (or its descendants) is intentional. Notes:
   - The `check` layout audit measures `getBoundingClientRect` at sampled timestamps, not rendered pixels. `overflow: hidden` clips the visual but does **not** suppress a layout finding. This attribute is the escape hatch; CSS overflow is not.

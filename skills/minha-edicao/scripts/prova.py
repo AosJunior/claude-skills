@@ -45,14 +45,17 @@ def sair(msg):
 
 
 def achar(caminho, base):
-    """Resolve um caminho do prova.json: marca/... sobe até achar; o resto é relativo à pasta do json."""
+    """Resolve um caminho do prova.json: marca/... sobe até achar (sem passar da pasta pessoal); o resto é relativo à pasta do json."""
     p = Path(caminho)
     if p.is_absolute():
         return p
     if p.parts and p.parts[0] == "marca":
+        casa = Path.home().resolve()      # como o achar_marca do kit: sobe até a pasta pessoal, nunca acima dela
         for pasta in [base, *base.parents]:
             if (pasta / p).exists():
                 return pasta / p
+            if pasta == casa:
+                break
     return base / p
 
 
@@ -142,7 +145,7 @@ def navegador(pw):
     except Exception as e:
         if "Executable doesn't exist" not in str(e) and "playwright install" not in str(e):
             raise
-    print("Primeira vez: baixando o navegador que desenha a prova (uns 150 MB, 1 a 3 min)...", flush=True)
+    print("Primeira vez: baixando o navegador que desenha a prova (cerca de 600 MB, 1 a 3 min)...", flush=True)
     if subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"]).returncode:
         sair("Não consegui baixar o navegador. Confira a internet e rode de novo.")
     return pw.chromium.launch()
@@ -154,7 +157,7 @@ def main():
             s.reconfigure(encoding="utf-8", errors="replace")
         except Exception:
             pass
-    if len(sys.argv) != 2:
+    if len(sys.argv) != 2 or sys.argv[1] in ("-h", "--help"):
         sair(__doc__)
     if not shutil.which("ffmpeg"):
         sair("Falta o ffmpeg. Mac: brew install ffmpeg · Windows: winget install Gyan.FFmpeg")

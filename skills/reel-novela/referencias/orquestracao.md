@@ -149,7 +149,7 @@ Enquanto houver agente editando o projeto, quem renderiza trabalha numa cópia, 
 - Windows: `robocopy "<ep>\sequencia\motion" "<cópia>" /E /XD renders`
 
 Na cópia, `python3 "<pasta desta skill>/scripts/entregar.py"` não serve (ele espera a pasta do episódio): rode
-`npx --yes hyperframes@0.9.6 render -o "<ep>/sequencia/previas/<nome>.mp4" -q draft` na raiz da cópia. Um segundo HTML
+`npx --yes hyperframes@0.9.26 render -o "<ep>/sequencia/previas/<nome>.mp4" -q draft` na raiz da cópia. Um segundo HTML
 na raiz do projeto quebra o `check` de quem trabalha; na cópia, não atrapalha. O render de entrega roda no próprio
 projeto, com os agentes de ato parados.
 

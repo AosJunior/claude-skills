@@ -23,11 +23,13 @@ demora, diga quanto tempo leva:
 
 | Etapa | Mac com chip M | Windows ou Mac Intel |
 |---|---|---|
-| Primeira vez: baixa o navegador que desenha (uns 200 MB, uma vez por computador) | 1 a 3 min | 2 a 5 min |
+| Primeira vez: baixa o navegador que desenha (cerca de 600 MB, uma vez por computador) | 1 a 3 min | 2 a 5 min |
 | Desenhar legenda e peças (`--cartoes`) | 10 a 30 s (depois, só o que mudou) | 30 s a 1 min |
 | Máscara da pessoa (só com vídeo atrás dela; fica guardada) | uns 8 s por segundo de trecho | uns 10 s por segundo de trecho |
 | Vídeo final só com cartões e legenda | uns 20 s por minuto de vídeo | 1 a 2 min por minuto |
 | Vídeo final com camadas ou tela dividida | uns 25 s por minuto de vídeo | 2 a 4 min por minuto |
+
+Na primeira execução de cada skill o uv prepara o ambiente dela (bibliotecas Python): leva de 4 a 5 minutos, e a tela parece parada. Avise antes que isso é normal, só acontece na primeira vez e não é travamento. O navegador de cima e a animação (HyperFrames, que baixa pelo `npx`) têm a espera deles.
 
 A única pergunta do fluxo é a confirmação do mapa (passo 3). O resto você executa.
 
@@ -60,11 +62,17 @@ Depois do grilling, na ordem e sem voltar:
 
 ## 0. Conferir o ambiente
 
-`ffmpeg -version` e `uv --version`. Se faltar um, diga em uma linha o que falta e ofereça instalar; instale
-só depois do sim (Mac: `brew install ffmpeg uv`; Windows: [windows.md](windows.md)). Pronto quando os dois
-respondem com a versão. Vídeo atrás da pessoa usa o Apple Vision no Mac com chip M (precisa das Command
+`ffmpeg -version` e `uv --version`; para o modo de animação (motion), também `node --version` (22 ou mais novo).
+Se faltar um, diga em uma linha o que falta e ofereça instalar; instale só depois do sim (Mac: `brew install ffmpeg
+uv node`; Windows: [windows.md](windows.md)). Pronto quando os três respondem com a versão. Vídeo atrás da pessoa usa o Apple Vision no Mac com chip M (precisa das Command
 Line Tools: `xcode-select --install`); sem elas, o script cai sozinho num recorte que roda em qualquer
 computador e avisa em uma linha.
+
+Só no modo de animação: o HyperFrames roda por `npx --yes hyperframes@0.9.26` (a versão fica fixa nesta skill; baixa
+sozinho na primeira vez). Ele vem com a telemetria ligada: envia o nome dos comandos, desempenho e erros de render e
+dados do computador (sistema, processador, memória, nome do agente), nunca nome de projeto, conteúdo do vídeo nem
+valores. Diga isso em uma linha e, se a pessoa quiser desligar, rode `npx --yes hyperframes@0.9.26 telemetry
+disable` (ou use `HYPERFRAMES_NO_TELEMETRY=1`; `telemetry status` mostra o estado).
 
 ## 1. Ler a fala, a marca e o estilo
 
@@ -206,7 +214,17 @@ escrever a primeira cena, leia `<pasta desta skill>/referencias/gsap-hyperframes
 de movimento). As consultas estão copiadas em `referencias/hyperframes/` e `referencias/gsap/`; esta skill não
 depende de outra instalada.
 
-- **Projeto**: `npx hyperframes init <pasta do vídeo>/motion` uma vez. Raiz 1080×1920 (`data-width`/`data-height`),
+- **Teste da máquina**: antes do primeiro motion, `npx --yes hyperframes@0.9.26 doctor` e leia a tela (ele sai com
+  código 0 mesmo quando algo falha). Docker, voz (Kokoro) e música (MusicGen) com ✗ são opcionais, e o aviso de versão
+  nova se ignora (a versão fica fixa de propósito).
+- **Skills oficiais do HyperFrames (opcional)**: o HyperFrames é a plataforma que esta skill usa, e o `init` leva
+  `--skip-skills` só para nada ser instalado sem a pessoa pedir. Quem quiser o registro de blocos prontos oficial
+  digita, no terminal: `npx --yes skills@1.8.0 add "heygen-com/hyperframes#v0.9.26" -s hyperframes-registry -a
+  claude-code -g -y --copy`. Os comandos desta skill valem igual com ou sem ele; se uma skill oficial sugerir
+  `npx hyperframes ...` sem versão, rode com `@0.9.26`.
+- **Projeto**: `npx --yes hyperframes@0.9.26 init "<pasta do vídeo>/motion" --non-interactive --skip-skills
+  --resolution portrait` uma vez (sem `--skip-skills` ele instala skills de terceiros no computador da pessoa; sem
+  `--resolution` o projeto nasce deitado; ignore a lista de "próximos passos" que ele imprime). Raiz 1080×1920 (`data-width`/`data-height`),
   `data-duration` igual à duração da fala cortada. Uma cena por subcomposição (`data-composition-src`), cada uma com
   sua timeline pausada e ids prefixados com o nome da cena.
 - **Dois modos**:
@@ -218,7 +236,7 @@ depende de outra instalada.
     cena com transição causada por algo na tela.
 - **Tempo da fala**: o tempo de cada palavra vem de alinhamento forçado da voz com o texto corrigido (a transcrição
   da `/decupar` ou o roteiro), por exemplo o do ElevenLabs (`POST /v1/forced-alignment`, com números e siglas por
-  extenso no texto). O `palavras-corte.json` e o `npx hyperframes transcribe` vêm do Whisper, que já errou até
+  extenso no texto). O `palavras-corte.json` e o `npx --yes hyperframes@0.9.26 transcribe` vêm do Whisper, que já errou até
   0,6 s. Confira nas pausas da onda (`silencedetect` do ffmpeg): nenhuma palavra começa dentro de uma pausa de
   120 ms ou mais. Cada coisa dita entra na palavra em que é dita. Legenda por palavra, de 2 a 4 palavras por grupo,
   logo acima do vídeo (ou no terço de baixo no modo só voz).
@@ -227,21 +245,27 @@ depende de outra instalada.
   partir do código e dos quadros, com letra maior para o celular.
 - **Número na tela** pode girar como roleta até travar na palavra. O som da roda é da `/sonorizar`: só no número
   principal e curto.
-- **Antes de desenhar**: procure o efeito no registro (`npx hyperframes catalog --query <efeito> --json`,
+- **Antes de desenhar**: procure o efeito no registro (`npx --yes hyperframes@0.9.26 catalog --query <efeito> --json`,
   `referencias/hyperframes/registry.md`) antes de fazer à mão.
 - **Gancho**: movimento e título que já se leem no quadro 0; a ação presa às palavras; o quadro do impacto vira a capa.
   Um gancho só, em high (segunda versão só se a pessoa pedir), aprovado com som antes das outras cenas. Com segunda
   versão, ela escolhe por uma folha só, sem render: cada versão numa cópia da pasta do motion e
-  `npx --yes hyperframes@0.9.6 compare "<cópia A>" "<cópia B>" --at <t> --labels "A,B" --out "<pasta>/gancho-ab.png"`
+  `npx --yes hyperframes@0.9.26 compare "<cópia A>" "<cópia B>" --at <t> --labels "A,B" --out "<pasta>/gancho-ab.png"`
   (pastas inteiras: a composição do gancho sozinha sai em branco).
 - **Equipe e orçamento**: um agente por cena, em paralelo, com briefing em arquivo e teto de uns 40 turnos. Ele roda
-  `npx hyperframes check` e confere 3 quadros-chave (`npx hyperframes snapshot --at ...`), nunca a sequência inteira.
+  `npx --yes hyperframes@0.9.26 check` e confere 3 quadros-chave (`npx --yes hyperframes@0.9.26 snapshot --at ...`), nunca a sequência inteira.
   Depois, **um** revisor de olhos novos lê uma folha de contato do vídeo montado e devolve a lista de correções; não
   há revisor por trecho, crítico extra nem auditoria quadro a quadro.
 - **CTA**: o toque no ícone abre o app com mola e a palavra do CTA é digitada na barra de comentário.
-- **Ordem**: `check` limpo → prévia leve com som para a pessoa aprovar (`npx hyperframes preview --background` ou
-  render em qualidade de rascunho) → `npx hyperframes render` em 1080×1920 uma vez. Correção depois disso renderiza
-  só o trecho. O som final sai na `/sonorizar` sobre o vídeo renderizado.
+- **Ordem**: `check` limpo → prévia leve com som para a pessoa aprovar (`npx --yes hyperframes@0.9.26 preview --background` ou
+  `render -q draft`) → `npx --yes hyperframes@0.9.26 render` em 1080×1920 uma vez. Correção depois disso renderiza
+  só o trecho: `render --start <s> --end <s> -q draft` (MP4, quadros por segundo inteiro de 24, 25, 30 ou 60 e SDR; o
+  trecho sai começando em 0, com o áudio dele).
+- **Desfazer**: `npx --yes hyperframes@0.9.26 history` lista as mudanças do projeto de motion; `history restore <id>`
+  (ou `restore start`) volta os arquivos àquele ponto e `history undo` desfaz o último `restore`. Não enxerga o
+  `insercoes.json` nem arquivo fora da pasta `motion`.
+- **Quadro preto**: o `snapshot` falha quando não consegue ler um quadro de vídeo, em vez de entregar um quadro preto;
+  trate esse erro como aviso real. O som final sai na `/sonorizar` sobre o vídeo renderizado.
 - **Pasta**: trabalhe fora da Mesa e de Documentos quando o disco estiver quase cheio (o iCloud tira os arquivos do
   disco: "Operation timed out").
 - **Revisão**: legenda contra balões e cartões, elementos que sobram depois da saída da cena e palavras da fala que

@@ -19,9 +19,12 @@ O que faz:
 
 Campos do roteiro.json que ele lê (modelos/roteiro-episodio.md, «Campos para montar o projeto»):
   blocos[].ato · blocos[].legenda.chave (e chave_b, cta, numeros) · legenda.fora[] · barra[].
-Pode rodar de novo sempre que o roteiro ou a narração mudar: reescreve só o que é gerado e nunca um atoN.html que já
-existe. Num projeto da segunda voz (tem briefings/palavras-cenas.json), use o segunda_voz.py.
-Precisa de node (a legenda). Depois: entregar.py <epNN> --rascunho.
+  6. no <video data-aula> do ato que mostra a aula (o vídeo real de quem vende), escreve data-start e data-duration a
+     partir do aula-janela.json (tempo local ao ato). É o único tempo numérico de um ato, e é gerado.
+Pode rodar de novo sempre que o roteiro ou a narração mudar: reescreve só o que é gerado e nunca o conteúdo de um
+atoN.html que já existe (só o data-start e o data-duration do <video data-aula>). Num projeto da segunda voz (tem briefings/palavras-cenas.json), use o segunda_voz.py.
+Precisa de node (a legenda) e, na primeira vez em cada projeto, de internet: baixa a GSAP 3.14.2 do pacote oficial
+(jsDelivr) para assets/gsap.min.js. Depois: entregar.py <epNN> --rascunho.
 """
 import argparse
 import shutil
@@ -112,7 +115,7 @@ def main():
     novos = copiar_esqueleto(proj, a.esqueleto)
     copiar_componentes(proj, comp)
     if N.garantir_gsap(proj):
-        print("GSAP 3.14.2 baixada para assets/gsap.min.js")
+        print("GSAP 3.14.2 baixada do pacote oficial (jsDelivr) para assets/gsap.min.js")
     (proj / "briefings").mkdir(parents=True, exist_ok=True)
     shutil.copy2(narr / "narracao.wav", proj / "narracao.wav")
     shutil.copy2(narr / "palavras-voz.json", proj / "briefings" / "palavras-voz.json")
@@ -134,6 +137,8 @@ def main():
              [(f"ato{j['n']}", ",".join(j["cenas"]), N.fmt(j["start"]), N.fmt(j["dur"])) for j in resumo["janelas"]])
     print("Barra: " + "; ".join(f"{N.fmt(e['t'], 2)} {e['faz']}" for e in resumo["barra"]["eventos"]))
     print("Legenda fora: " + "; ".join(f"{j['nome']} {N.fmt(j['ini'], 2)}–{N.fmt(j['fim'], 2)}" for j in resumo["legenda"]["fora"]))
+    for l in resumo["video_aula"]:
+        print("Vídeo da aula (gerado do aula-janela.json): " + l)
     print("Atos criados (vazios): " + (", ".join(criados) if criados else "nenhum (já existiam)"))
     for av in avisos:
         print("aviso da legenda: " + av)

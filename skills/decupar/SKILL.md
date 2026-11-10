@@ -34,6 +34,8 @@ etapa que demora, diga quanto tempo leva:
 | Achar o rosto (vídeo horizontal; na primeira vez instala o OpenCV, uns 50 MB) | 20 a 40 s | 1 a 2 min |
 | Medir a cor e montar a folha antes × depois | menos de 10 s | uns 30 s |
 
+Na primeira execução de cada skill o uv prepara o ambiente dela (bibliotecas Python): leva de 4 a 5 minutos, e a tela parece parada. Avise antes que isso é normal, só acontece na primeira vez e não é travamento.
+
 A única pergunta do fluxo é a confirmação do mapa de cortes (passo 3). O resto você executa.
 
 ## 0. Conferir o ambiente

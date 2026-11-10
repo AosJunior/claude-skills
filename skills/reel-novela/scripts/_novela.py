@@ -27,7 +27,7 @@ MOVIMENTO = SKILL / "referencias" / "movimento.md"
 CONTRATO_HF = SKILL / "referencias" / "gsap-hyperframes.md"
 SR = 48000
 SOBREPOSICAO = 0.30          # janela do ato = início do ato seguinte + 0,30 s
-HYPERFRAMES = "hyperframes@0.9.6"
+HYPERFRAMES = "hyperframes@0.9.26"
 GSAP_URL = "https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"
 
 

@@ -2,7 +2,8 @@
 
 Importada por montar_projeto.py e segunda_voz.py. A função central é `refazer`, que reescreve só os arquivos GERADOS
 do projeto (index.html, barra-eventos.js, o bloco da barra no roletas.js, legenda-grupos.js, as tabelas da _regua.md
-e briefings/montagem.json) e cria os compositions/atoN.html que faltam. Nunca toca num atoN.html que já existe.
+e briefings/montagem.json) e cria os compositions/atoN.html que faltam. Num atoN.html que já existe só mexe em dois
+atributos: o data-start e o data-duration do <video data-aula> (o vídeo real da aula), que saem do aula-janela.json.
 """
 from __future__ import annotations
 
@@ -222,6 +223,54 @@ def criar_atos(proj, js, forcar=False):
     return novos
 
 
+def tempos_video_aula(proj, js, aula):
+    """Reescreve o data-start e o data-duration de cada <video data-aula> dos compositions/atoN.html a partir do
+    aula-janela.json. É o único tempo numérico que um ato carrega, e é gerado: o vídeo da aula não está no alinhamento da
+    voz (o VOZ.w não o move), então o tempo vem da janela da aula, no tempo real da narração. `data-aula` vazio = a aula
+    inteira (aula_ini a aula_fim); `data-aula="A"` = o pedaço A do aula-janela.json. O data-start de um vídeo dentro
+    de uma composição é local: tempo da aula menos o data-start do ato. Devolve ([linhas do que fez], [avisos])."""
+    feito, avisos = [], []
+    tag = re.compile(r"<video\b[^>]*>", re.S)
+    for f in sorted((proj / "compositions").glob("ato[0-9]*.html")):
+        texto = f.read_text(encoding="utf-8")
+        n = int(re.search(r"ato(\d+)", f.name).group(1))
+        ato = next((j for j in js if j["n"] == n), None)
+        comentarios = [m.span() for m in re.finditer(r"<!--[\s\S]*?-->", texto)]
+
+        def troca(m):
+            if any(a <= m.start() < b for a, b in comentarios):
+                return m.group(0)
+            v = m.group(0)
+            if not re.search(r"\sdata-aula\b", v):
+                if aula:
+                    avisos.append(f"{f.name}: há um <video> sem `data-aula`; o tempo dele não acompanha a narração. "
+                                  "Marque o vídeo da aula com data-aula (modelos/componentes/README.md, «Telefone»).")
+                return v
+            if not aula or not ato:
+                avisos.append(f"{f.name}: <video data-aula> sem aula-janela.json (rode o encaixar_aula.py) ou sem janela do ato.")
+                return v
+            nome = (re.search(r'\sdata-aula="([^"]*)"', v) or [None, ""])[1]
+            if nome and nome not in aula.get("pedacos", {}):
+                avisos.append(f"{f.name}: data-aula=\"{nome}\" não é um pedaço do aula-janela.json "
+                              f"({', '.join(aula.get('pedacos', {})) or 'nenhum'}).")
+                return v
+            ini, fim = (aula["pedacos"][nome]["ini"], aula["pedacos"][nome]["fim"]) if nome else (aula["aula_ini"], aula["aula_fim"])
+            local, dur = round(ini - ato["start"], 3), round(fim - ini, 3)
+            for attr, val in (("data-start", local), ("data-duration", dur)):
+                if re.search(rf"\s{attr}=", v):
+                    v = re.sub(rf'(\s{attr}=)"[^"]*"', rf'\g<1>"{N.fmt(val)}"', v)
+                else:
+                    v = v[:-1].rstrip() + f' {attr}="{N.fmt(val)}">'
+            feito.append(f"{f.name}: aula {N.fmt(ini, 2)}–{N.fmt(fim, 2)} s → data-start {N.fmt(local)} (local ao ato{n}), "
+                         f"data-duration {N.fmt(dur)}")
+            return v
+
+        novo = tag.sub(troca, texto)
+        if novo != texto:
+            f.write_text(novo, encoding="utf-8")
+    return feito, avisos
+
+
 def gerar_legenda(proj, flags, janelas):
     if not shutil.which("node"):
         N.sair("o node não está instalado: ele gera a legenda (briefings/legenda-novela.cjs).")
@@ -255,11 +304,13 @@ def refazer(proj, ep, rot, real, cod, A, dur, aula, log=print, comp=None):
             log("aviso: assets/roletas.js sem os marcadores <novela:barra>; o som dos tiques do relógio não foi registrado.")
         rj.write_text(t, encoding="utf-8")
     novos = criar_atos(proj, js)
+    video_aula, avisos_aula = tempos_video_aula(proj, js, aula)
     flags = flags_legenda(rot)
     fora = janelas_fora(rot, real)
     cmd, avisos = gerar_legenda(proj, flags, fora)
     preencher_regua(proj, rot, dur, js, cfg, evs, aula, comp)
-    resumo = {"duracao": dur, "janelas": js, "barra": {"config": cfg, "eventos": evs},
+    avisos = avisos_aula + avisos
+    resumo = {"duracao": dur, "janelas": js, "video_aula": video_aula, "barra": {"config": cfg, "eventos": evs},
               "legenda": {"flags": flags, "fora": [{"nome": n, "ini": i, "fim": f} for n, i, f in fora], "comando": " ".join(cmd)}}
     N.gravar(proj / "briefings" / "montagem.json", resumo)
     return resumo, novos, avisos

@@ -50,7 +50,7 @@ document.getElementById("title").textContent = title;
   - `enum` — **required** `options: [{ "value": "...", "label": "..." }, ...]`
 - Always provide useful `default` values so preview works without CLI overrides.
 - Use `data-variable-values='{"title":"Pro"}'` on sub-composition hosts for per-instance overrides.
-- Use `npx hyperframes render --variables '{"title":"Q4 Report"}'` or `--variables-file` for render-time overrides.
+- Use `npx --yes hyperframes@0.9.26 render --variables '{"title":"Q4 Report"}'` or `--variables-file` for render-time overrides.
 - Add `--strict-variables` in CI: turns undeclared keys, type mismatches, and enum values not in `options` into errors instead of warnings.
 - Read values once during init, not on every animation tick — variables don't change mid-render.
 - Media color grading can use exact variable references inside `data-color-grading` JSON. Use `$gradingPreset` or `${gradingIntensity}` as the whole field value; the runtime resolves it from the current composition's variables before applying shader adjustments, finishing details, blur/pixelate effects, and custom LUTs.
@@ -97,7 +97,7 @@ A video with sound keeps it on the `<video>` (`data-has-audio="true"`, no `muted
 - **Do not** call `video.play()`, `audio.play()`, pause, or seek in composition code. HyperFrames owns playback.
 - **Do not** drive host-root media from a sub-comp timeline: a sub-comp timeline cannot reach elements outside its subtree, so it has no effect. Drive host-root media from the main timeline at global time (or keep the media inside the sub-comp whose timeline animates it).
 - **Do not** animate timed media element dimensions; animate a non-timed wrapper instead.
-- **Do not** nest video inside a timed wrapper. `lint` rejects a `<video data-start>` whose ancestor also carries `data-start` (`video_nested_in_timed_element`, error), and the failure is real: the frame extractor resolves the video's start from its own `data-start` without the wrapper's offset, while visibility uses the wrapper's window. The clip then shows the wrong source frames and disappears partway through its slot. Put the timing on the wrapper **or** on the media element, never both.
+- **Do not** nest video inside a timed wrapper. `lint` rejects a `<video data-start>` whose ancestor also carries `data-start` (`video_nested_in_timed_element`, error), and the failure is real: the frame extractor resolves the video's start from its own `data-start` without the wrapper's offset, while visibility uses the wrapper's window. The clip then shows the wrong source frames and disappears partway through its slot. Put the timing on the media element and leave the wrapper without `data-start`.
 - **Sub-compositions are exempt and work.** A `<video>`/`<audio>` inside a sub-composition renders identically to one at the host root, because a composition host propagates its offset. Only plain timed wrappers (a `<section data-start>` around a `<video data-start>`) break.
 - **Never** add `crossorigin` to `<video>`/`<audio>`. `lint` rejects it unconditionally (`media_crossorigin_breaks_preview`, error) because a media host without `Access-Control-Allow-Origin` then fails silently in preview while renders still work, hiding the bug. There is no suppression, so this holds even for the canvas/WebGL/WebAudio readback case.
 - **Every `<audio>` needs an `id`.** The mixer selects `audio[id][src]`, so an id-less `<audio>` is never mixed and the render is **silent**. `lint` catches it as `media_missing_id`.
